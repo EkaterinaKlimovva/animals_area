@@ -56,7 +56,14 @@ describe('AreaService', () => {
 
     const service = new AreaService();
 
-    await expect(service.updateArea(42, { name: 'New Name' })).rejects.toBeInstanceOf(NotFoundError);
+    await expect(service.updateArea(42, { 
+      name: 'New Name',
+      areaPoints: [
+        { latitude: 0, longitude: 0 },
+        { latitude: 0, longitude: 1 },
+        { latitude: 1, longitude: 0 },
+      ],
+    })).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it('throws bad request when analytics dates are invalid', async () => {

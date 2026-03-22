@@ -197,6 +197,10 @@ export class AnimalService {
   }
 
   async updateAnimalTypes(animalId: number, oldTypeId: number, newTypeId: number) {
+    if (oldTypeId === newTypeId) {
+      throw new ConflictError('Old and new animal type must be different');
+    }
+
     const animal = await this.animalRepository.findById(animalId);
     if (!animal) {
       throw new NotFoundError('Animal not found');
@@ -275,6 +279,11 @@ export class AnimalService {
     const animal = await this.animalRepository.findById(animalId);
     if (!animal) {
       throw new NotFoundError('Animal not found');
+    }
+
+    const visitedLocationRecord = await this.animalRepository.findVisitedLocationById(visitedLocationId);
+    if (!visitedLocationRecord) {
+      throw new NotFoundError('Visited location not found');
     }
 
     const visitedLocation = animal.visitedLocations.find(vl => vl.id === visitedLocationId);

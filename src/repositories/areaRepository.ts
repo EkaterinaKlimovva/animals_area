@@ -68,7 +68,8 @@ export class AreaRepository {
   }
 
   async getAreaAnalytics(areaId: number, startDate: Date, endDate: Date): Promise<AreaAnalytics> {
-    const visitsInArea = await prisma.animalVisitedLocation.findMany({
+    // Получаем уникальные animalIds, которые посещали зону в периоде
+    const animalIdsInPeriod = await prisma.animalVisitedLocation.findMany({
       where: {
         areaId: areaId,
         dateTimeOfVisitLocation: {
@@ -78,6 +79,30 @@ export class AreaRepository {
       },
       select: {
         animalId: true,
+      },
+      distinct: ['animalId'],
+    });
+
+    const animalIds = animalIdsInPeriod.map(v => v.animalId);
+
+    if (animalIds.length === 0) {
+      return {
+        totalQuantityAnimals: 0,
+        totalAnimalsArrived: 0,
+        totalAnimalsGone: 0,
+        animalsAnalytics: [],
+      };
+    }
+
+    // Получаем все посещения этих животных в зоне
+    const allVisits = await prisma.animalVisitedLocation.findMany({
+      where: {
+        areaId: areaId,
+        animalId: { in: animalIds },
+      },
+      select: {
+        animalId: true,
+        dateTimeOfVisitLocation: true,
         animal: {
           select: {
             types: {
@@ -93,87 +118,97 @@ export class AreaRepository {
           },
         },
       },
+      orderBy: {
+        dateTimeOfVisitLocation: 'asc',
+      },
     });
 
-    const animalIdsInArea = [...new Set(visitsInArea.map((visit) => visit.animalId))];
+    // Группируем посещения по животным, определяя общее первое и последнее посещение
+    const visitsByAnimal = new Map<number, { firstVisit: Date; lastVisit: Date; types: { id: number; type: string }[] }>();
 
-    const departuresCount = await prisma.animalVisitedLocation.groupBy({
-      by: ['animalId'],
-      where: {
-        animalId: {
-          in: animalIdsInArea,
-        },
-        areaId: {
-          not: areaId,
-        },
-        dateTimeOfVisitLocation: {
-          gte: startDate,
-          lte: endDate,
-        },
-      },
-      _count: {
-        animalId: true,
-      },
-    }).then((groups) => groups.length);
+    for (const visit of allVisits) {
+      const animalId = visit.animalId;
+      const types = visit.animal.types.map(t => ({ id: t.animalType.id, type: t.animalType.type }));
 
-    const arrivalsByAnimalType = new Map<number, { animalType: string; quantityAnimalIds: Set<number>; arrivedAnimalIds: Set<number> }>();
-
-    for (const visit of visitsInArea) {
-      for (const animalTypeRelation of visit.animal.types) {
-        const animalType = animalTypeRelation.animalType;
-        const stats = arrivalsByAnimalType.get(animalType.id) ?? {
-          animalType: animalType.type,
-          quantityAnimalIds: new Set<number>(),
-          arrivedAnimalIds: new Set<number>(),
-        };
-
-        stats.quantityAnimalIds.add(visit.animalId);
-        stats.arrivedAnimalIds.add(visit.animalId);
-        arrivalsByAnimalType.set(animalType.id, stats);
+      if (!visitsByAnimal.has(animalId)) {
+        visitsByAnimal.set(animalId, {
+          firstVisit: visit.dateTimeOfVisitLocation,
+          lastVisit: visit.dateTimeOfVisitLocation,
+          types,
+        });
+      } else {
+        const data = visitsByAnimal.get(animalId)!;
+        if (visit.dateTimeOfVisitLocation < data.firstVisit) {
+          data.firstVisit = visit.dateTimeOfVisitLocation;
+        }
+        if (visit.dateTimeOfVisitLocation > data.lastVisit) {
+          data.lastVisit = visit.dateTimeOfVisitLocation;
+        }
       }
     }
 
-    const animalsGoneByType = await prisma.animalTypeOnAnimal.groupBy({
-      by: ['animalTypeId'],
-      where: {
-        animalId: {
-          in: animalIdsInArea,
-        },
-        animal: {
-          visitedLocations: {
-            some: {
-              areaId: { not: areaId },
-              dateTimeOfVisitLocation: {
-                gte: startDate,
-                lte: endDate,
-              },
-            },
-          },
-        },
-      },
-      _count: {
-        animalId: true,
-      },
-    });
+    // Подсчитываем уникальных животных
+    const uniqueAnimalIds = [...visitsByAnimal.keys()];
+    const totalQuantityAnimals = uniqueAnimalIds.length;
 
-    const animalsAnalytics = await Promise.all(
-      [...arrivalsByAnimalType.entries()].map(async ([animalTypeId, stats]) => {
-        const gone = animalsGoneByType.find((item) => item.animalTypeId === animalTypeId)?._count.animalId ?? 0;
+    // Определяем животных, которые вошли в зону в указанный период
+    // (первое посещение зоны в периоде)
+    const arrivedAnimalIds = new Set<number>();
+    for (const [animalId, visits] of visitsByAnimal.entries()) {
+      // Проверяем, что первое посещение в периоде
+      if (visits.firstVisit >= startDate && visits.firstVisit <= endDate) {
+        arrivedAnimalIds.add(animalId);
+      }
+    }
 
-        return {
-          animalType: stats.animalType,
-          animalTypeId,
-          quantityAnimals: stats.quantityAnimalIds.size,
-          animalsArrived: stats.arrivedAnimalIds.size,
-          animalsGone: gone,
+    // Определяем животных, которые вышли из зоны в указанный период
+    // (последнее посещение зоны в периоде)
+    const goneAnimalIds = new Set<number>();
+    for (const [animalId, visits] of visitsByAnimal.entries()) {
+      // Проверяем, что последнее посещение в периоде
+      if (visits.lastVisit >= startDate && visits.lastVisit <= endDate) {
+        goneAnimalIds.add(animalId);
+      }
+    }
+
+    // Группируем по типам животных
+    const analyticsByType = new Map<number, { animalType: string; quantityAnimals: Set<number>; animalsArrived: Set<number>; animalsGone: Set<number> }>();
+
+    for (const [animalId, visits] of visitsByAnimal.entries()) {
+      for (const type of visits.types) {
+        const stats = analyticsByType.get(type.id) ?? {
+          animalType: type.type,
+          quantityAnimals: new Set<number>(),
+          animalsArrived: new Set<number>(),
+          animalsGone: new Set<number>(),
         };
-      }),
-    );
+
+        stats.quantityAnimals.add(animalId);
+        
+        if (arrivedAnimalIds.has(animalId)) {
+          stats.animalsArrived.add(animalId);
+        }
+        
+        if (goneAnimalIds.has(animalId)) {
+          stats.animalsGone.add(animalId);
+        }
+
+        analyticsByType.set(type.id, stats);
+      }
+    }
+
+    const animalsAnalytics = [...analyticsByType.entries()].map(([animalTypeId, stats]) => ({
+      animalType: stats.animalType,
+      animalTypeId,
+      quantityAnimals: stats.quantityAnimals.size,
+      animalsArrived: stats.animalsArrived.size,
+      animalsGone: stats.animalsGone.size,
+    }));
 
     return {
-      totalQuantityAnimals: animalIdsInArea.length,
-      totalAnimalsArrived: animalIdsInArea.length,
-      totalAnimalsGone: departuresCount,
+      totalQuantityAnimals,
+      totalAnimalsArrived: arrivedAnimalIds.size,
+      totalAnimalsGone: goneAnimalIds.size,
       animalsAnalytics: animalsAnalytics.sort((left, right) => left.animalTypeId - right.animalTypeId),
     };
   }

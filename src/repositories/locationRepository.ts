@@ -35,6 +35,15 @@ export class LocationRepository {
     }
   }
 
+  async isUsedByAnimals(id: number): Promise<boolean> {
+    const [chippingCount, visitedCount] = await Promise.all([
+      prisma.animal.count({ where: { chippingLocationId: id } }),
+      prisma.animalVisitedLocation.count({ where: { locationPointId: id } }),
+    ]);
+
+    return chippingCount > 0 || visitedCount > 0;
+  }
+
   async delete(id: number): Promise<boolean> {
     try {
       await prisma.locationPoint.delete({

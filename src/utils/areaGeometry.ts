@@ -5,7 +5,7 @@ export interface AreaPoint {
   longitude: number;
 }
 
-const EPSILON = 1e-10;
+const EPSILON = 1e-4;
 
 const samePoint = (a: AreaPoint, b: AreaPoint) =>
   Math.abs(a.latitude - b.latitude) < EPSILON && Math.abs(a.longitude - b.longitude) < EPSILON;

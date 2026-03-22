@@ -242,6 +242,10 @@ export class AnimalRepository {
     return prisma.animalVisitedLocation.create({ data });
   }
 
+  async findVisitedLocationById(id: number): Promise<AnimalVisitedLocation | null> {
+    return prisma.animalVisitedLocation.findUnique({ where: { id } });
+  }
+
   async updateVisitedLocation(
     id: number,
     data: Partial<{

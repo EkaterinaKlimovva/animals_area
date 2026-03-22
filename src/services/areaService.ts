@@ -1,7 +1,7 @@
 import { Area } from '@prisma/client';
 import { AreaRepository, AreaAnalytics } from '../repositories/areaRepository';
 import { BadRequestError, ConflictError, NotFoundError } from '../errors/httpErrors';
-import { arePolygonsEquivalent, AreaPoint, polygonsOverlap, validateAreaPoints } from '../utils/areaGeometry';
+import { arePolygonsEquivalent, AreaPoint, validateAreaPoints } from '../utils/areaGeometry';
 
 export class AreaService {
   private areaRepository: AreaRepository;
@@ -23,10 +23,6 @@ export class AreaService {
       if (arePolygonsEquivalent(areaPoints, existingPoints)) {
         throw new ConflictError('Area with same points already exists');
       }
-
-      if (polygonsOverlap(areaPoints, existingPoints)) {
-        throw new BadRequestError('Area intersects or overlaps with existing area');
-      }
     }
   }
 
@@ -36,6 +32,9 @@ export class AreaService {
     }
 
     const existingAreas = await this.areaRepository.findAll();
+    console.log('Existing areas:', existingAreas.map(a => ({ id: a.id, name: a.name })));
+    console.log('Creating area:', { name: data.name, areaPoints: data.areaPoints });
+    
     if (existingAreas.some((area) => area.name === data.name)) {
       throw new ConflictError('Area with same name already exists');
     }
@@ -55,7 +54,7 @@ export class AreaService {
     return this.areaRepository.findAll();
   }
 
-  async updateArea(id: number, data: Partial<{ name: string; areaPoints: AreaPoint[] }>): Promise<Area | null> {
+  async updateArea(id: number, data: { name: string; areaPoints: AreaPoint[] }): Promise<Area | null> {
     if (id <= 0) {
       throw new BadRequestError('Invalid area ID');
     }
@@ -65,20 +64,16 @@ export class AreaService {
       throw new NotFoundError('Area not found');
     }
 
-    if (data.name !== undefined && !data.name.trim()) {
+    if (!data.name.trim()) {
       throw new BadRequestError('Area name is required');
     }
 
-    if (data.name) {
-      const allAreas = await this.areaRepository.findAll();
-      if (allAreas.some((area) => area.id !== id && area.name === data.name)) {
-        throw new ConflictError('Area with same name already exists');
-      }
+    const allAreas = await this.areaRepository.findAll();
+    if (allAreas.some((area) => area.id !== id && area.name === data.name)) {
+      throw new ConflictError('Area with same name already exists');
     }
 
-    if (data.areaPoints) {
-      await this.validateAreaForSave(data.areaPoints, id);
-    }
+    await this.validateAreaForSave(data.areaPoints, id);
 
     return this.areaRepository.update(id, data);
   }

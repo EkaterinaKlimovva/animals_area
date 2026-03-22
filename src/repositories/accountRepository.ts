@@ -34,9 +34,19 @@ export class AccountRepository {
           email ? { email: { contains: email, mode: 'insensitive' } } : {},
         ],
       },
+      orderBy: { id: 'asc' },
       skip: from,
       take: size,
     });
+  }
+
+  async isLinkedToAnimals(id: number): Promise<boolean> {
+    const [chippedCount, visitedCount] = await Promise.all([
+      prisma.animal.count({ where: { chipperId: id } }),
+      prisma.animalVisitedLocation.count({ where: { visitedByAccountId: id } }),
+    ]);
+
+    return chippedCount > 0 || visitedCount > 0;
   }
 
   async update(id: number, data: Partial<{ firstName: string; lastName: string; email: string; password: string; role: Role }>): Promise<Account | null> {

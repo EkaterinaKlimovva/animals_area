@@ -29,6 +29,14 @@ export class AnimalTypeRepository {
     }
   }
 
+  async isUsedByAnimals(id: number): Promise<boolean> {
+    const count = await prisma.animalTypeOnAnimal.count({
+      where: { animalTypeId: id },
+    });
+
+    return count > 0;
+  }
+
   async delete(id: number): Promise<boolean> {
     try {
       await prisma.animalType.delete({

@@ -101,6 +101,11 @@ export class AccountService {
       throw new ForbiddenError('Account not found');
     }
 
+    const linkedToAnimals = await this.accountRepository.isLinkedToAnimals(id);
+    if (linkedToAnimals) {
+      throw new BadRequestError('Account is linked to animals');
+    }
+
     return this.accountRepository.delete(id);
   }
 

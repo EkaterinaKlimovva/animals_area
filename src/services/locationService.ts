@@ -3,7 +3,7 @@ import { LocationRepository } from '../repositories/locationRepository';
 import { AreaRepository } from '../repositories/areaRepository';
 import { point as turfPoint, polygon as turfPolygon } from '@turf/helpers';
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
-import { BadRequestError, ConflictError } from '../errors/httpErrors';
+import { BadRequestError, ConflictError, NotFoundError } from '../errors/httpErrors';
 
 export class LocationService {
   private locationRepository: LocationRepository;
@@ -44,24 +44,27 @@ export class LocationService {
   }
 
   async createLocation(data: { latitude: number; longitude: number }): Promise<LocationPoint> {
-    await this.validateCoordinates(data.latitude, data.longitude);
+    const roundedLatitude = Math.round(data.latitude * 100000000000000) / 100000000000000;
+    const roundedLongitude = Math.round(data.longitude * 100000000000000) / 100000000000000;
 
-    const existing = await this.locationRepository.findByCoordinates(data.latitude, data.longitude);
+    await this.validateCoordinates(roundedLatitude, roundedLongitude);
+
+    const existing = await this.locationRepository.findByCoordinates(roundedLatitude, roundedLongitude);
     if (existing) {
       throw new ConflictError('Location with same coordinates already exists');
     }
 
-    const areaId = await this.findAreaForLocation(data.latitude, data.longitude);
+    const areaId = await this.findAreaForLocation(roundedLatitude, roundedLongitude);
     if (areaId === null) {
       return this.locationRepository.create({
-        latitude: data.latitude,
-        longitude: data.longitude,
+        latitude: roundedLatitude,
+        longitude: roundedLongitude,
       });
     }
 
     return this.locationRepository.create({
-      latitude: data.latitude,
-      longitude: data.longitude,
+      latitude: roundedLatitude,
+      longitude: roundedLongitude,
       areaId,
     });
   }
@@ -78,6 +81,11 @@ export class LocationService {
     if (data.latitude !== undefined || data.longitude !== undefined) {
       const location = await this.locationRepository.findById(id);
       if (!location) return null;
+
+      const linkedToAnimals = await this.locationRepository.isUsedByAnimals(id);
+      if (linkedToAnimals) {
+        throw new BadRequestError('Location is used by animals');
+      }
 
       const newLat = data.latitude ?? location.latitude;
       const newLng = data.longitude ?? location.longitude;
@@ -108,6 +116,16 @@ export class LocationService {
   }
 
   async deleteLocation(id: number): Promise<boolean> {
+    const location = await this.locationRepository.findById(id);
+    if (!location) {
+      throw new NotFoundError('Location not found');
+    }
+
+    const linkedToAnimals = await this.locationRepository.isUsedByAnimals(id);
+    if (linkedToAnimals) {
+      throw new BadRequestError('Location is linked to animals');
+    }
+
     return this.locationRepository.delete(id);
   }
 }
