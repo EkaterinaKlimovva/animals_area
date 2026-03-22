@@ -1,0 +1,117 @@
+import { Area } from '@prisma/client';
+import { AreaRepository, AreaAnalytics } from '../repositories/areaRepository';
+import { BadRequestError, ConflictError, NotFoundError } from '../errors/httpErrors';
+import { arePolygonsEquivalent, AreaPoint, polygonsOverlap, validateAreaPoints } from '../utils/areaGeometry';
+
+export class AreaService {
+  private areaRepository: AreaRepository;
+
+  constructor() {
+    this.areaRepository = new AreaRepository();
+  }
+
+  private async validateAreaForSave(areaPoints: AreaPoint[], currentAreaId?: number): Promise<void> {
+    validateAreaPoints(areaPoints);
+
+    const existingAreas = await this.areaRepository.findAll();
+    for (const area of existingAreas) {
+      if (currentAreaId && area.id === currentAreaId) {
+        continue;
+      }
+
+      const existingPoints = area.areaPoints as unknown as AreaPoint[];
+      if (arePolygonsEquivalent(areaPoints, existingPoints)) {
+        throw new ConflictError('Area with same points already exists');
+      }
+
+      if (polygonsOverlap(areaPoints, existingPoints)) {
+        throw new BadRequestError('Area intersects or overlaps with existing area');
+      }
+    }
+  }
+
+  async createArea(data: { name: string; areaPoints: AreaPoint[] }): Promise<Area> {
+    if (!data.name?.trim()) {
+      throw new BadRequestError('Area name is required');
+    }
+
+    const existingAreas = await this.areaRepository.findAll();
+    if (existingAreas.some((area) => area.name === data.name)) {
+      throw new ConflictError('Area with same name already exists');
+    }
+
+    await this.validateAreaForSave(data.areaPoints);
+    return this.areaRepository.create(data);
+  }
+
+  async getAreaById(id: number): Promise<Area | null> {
+    if (id <= 0) {
+      throw new BadRequestError('Invalid area ID');
+    }
+    return this.areaRepository.findById(id);
+  }
+
+  async getAllAreas(): Promise<Area[]> {
+    return this.areaRepository.findAll();
+  }
+
+  async updateArea(id: number, data: Partial<{ name: string; areaPoints: AreaPoint[] }>): Promise<Area | null> {
+    if (id <= 0) {
+      throw new BadRequestError('Invalid area ID');
+    }
+
+    const existingArea = await this.areaRepository.findById(id);
+    if (!existingArea) {
+      throw new NotFoundError('Area not found');
+    }
+
+    if (data.name !== undefined && !data.name.trim()) {
+      throw new BadRequestError('Area name is required');
+    }
+
+    if (data.name) {
+      const allAreas = await this.areaRepository.findAll();
+      if (allAreas.some((area) => area.id !== id && area.name === data.name)) {
+        throw new ConflictError('Area with same name already exists');
+      }
+    }
+
+    if (data.areaPoints) {
+      await this.validateAreaForSave(data.areaPoints, id);
+    }
+
+    return this.areaRepository.update(id, data);
+  }
+
+  async deleteArea(id: number): Promise<boolean> {
+    if (id <= 0) {
+      throw new BadRequestError('Invalid area ID');
+    }
+
+    const existingArea = await this.areaRepository.findById(id);
+    if (!existingArea) {
+      throw new NotFoundError('Area not found');
+    }
+
+    return this.areaRepository.delete(id);
+  }
+
+  async getAreaAnalytics(id: number, startDate: Date, endDate: Date): Promise<AreaAnalytics> {
+    if (id <= 0) {
+      throw new BadRequestError('Invalid area ID');
+    }
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+      throw new BadRequestError('Invalid analytics period');
+    }
+    if (startDate >= endDate) {
+      throw new BadRequestError('startDate must be before endDate');
+    }
+
+    const area = await this.areaRepository.findById(id);
+    if (!area) {
+      throw new NotFoundError('Area not found');
+    }
+
+    return this.areaRepository.getAreaAnalytics(id, startDate, endDate);
+  }
+}

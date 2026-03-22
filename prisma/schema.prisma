@@ -1,0 +1,143 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["animals_area"]
+}
+
+enum Role {
+  ADMIN
+  CHIPPER
+  USER
+
+  @@schema("animals_area")
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+
+  @@schema("animals_area")
+}
+
+enum LifeStatus {
+  ALIVE
+  DEAD
+
+  @@schema("animals_area")
+}
+
+model Account {
+  id                Int                    @id @default(autoincrement())
+  firstName         String                 @map("first_name")
+  lastName          String                 @map("last_name")
+  email             String                 @unique
+  password          String
+  role              Role                   @default(USER)
+
+  // Relations
+  animalsChipped    Animal[]
+  visitedLocations  AnimalVisitedLocation[]
+
+  @@map("accounts")
+  @@schema("animals_area")
+}
+
+model Animal {
+  id                  Int                   @id @default(autoincrement())
+  weight              Float
+  length              Float
+  height              Float
+  gender              Gender
+  lifeStatus          LifeStatus            @default(ALIVE) @map("life_status")
+  chippingDateTime    DateTime              @map("chipping_date_time")
+  chipperId           Int                   @map("chipper_id")
+  chippingLocationId  Int                   @map("chipping_location_id")
+  deathDateTime       DateTime?             @map("death_date_time")
+
+  // Relations
+  chipper             Account               @relation(fields: [chipperId], references: [id], onDelete: Cascade)
+  chippingLocation    LocationPoint         @relation("ChippingLocation", fields: [chippingLocationId], references: [id])
+  types               AnimalTypeOnAnimal[]
+  visitedLocations    AnimalVisitedLocation[]
+
+  @@map("animals")
+  @@schema("animals_area")
+}
+
+model AnimalType {
+  id       Int                   @id @default(autoincrement())
+  type     String                @unique
+
+  // Relations
+  animals  AnimalTypeOnAnimal[]
+
+  @@map("animal_types")
+  @@schema("animals_area")
+}
+
+model AnimalTypeOnAnimal {
+  animalId     Int
+  animalTypeId Int                   @map("animal_type_id")
+
+  animal       Animal     @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  animalType   AnimalType @relation(fields: [animalTypeId], references: [id], onDelete: Cascade)
+
+  @@id([animalId, animalTypeId])
+  @@map("animal_type_on_animal")
+  @@schema("animals_area")
+}
+
+model LocationPoint {
+  id                Int                    @id @default(autoincrement())
+  latitude          Float
+  longitude         Float
+  areaId            Int?                   @map("area_id")
+
+  // Relations
+  area              Area?                  @relation(fields: [areaId], references: [id])
+  animalsChipped    Animal[]               @relation("ChippingLocation")
+  visitedLocations  AnimalVisitedLocation[]
+
+  @@map("location_points")
+  @@schema("animals_area")
+}
+
+model AnimalVisitedLocation {
+  id                      Int       @id @default(autoincrement())
+  dateTimeOfVisitLocation DateTime   @map("date_time_of_visit_location")
+  locationPointId         Int        @map("location_point_id")
+  animalId                Int        @map("animal_id")
+  visitedByAccountId      Int?       @map("visited_by_account_id")
+  areaId                  Int?       @map("area_id")
+
+  // Relations
+  locationPoint           LocationPoint @relation(fields: [locationPointId], references: [id], onDelete: Cascade)
+  animal                  Animal        @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  visitedByAccount        Account?      @relation(fields: [visitedByAccountId], references: [id])
+  area                    Area?         @relation(fields: [areaId], references: [id])
+
+  @@map("animal_visited_locations")
+  @@schema("animals_area")
+}
+
+model Area {
+  id                      Int                     @id @default(autoincrement())
+  name                    String
+  areaPoints              Json                    @map("area_points") // Array of points for polygon
+
+  // Relations
+  locationPoints          LocationPoint[]
+  animalVisitedLocations  AnimalVisitedLocation[]
+
+  @@map("areas")
+  @@schema("animals_area")
+}

@@ -4,11 +4,41 @@
   "description": "",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "start": "sh -c 'docker compose up -d database && npm run prisma:push && npm run build && if lsof -i :8080 >/dev/null 2>&1; then PORT=8081 node dist/src/index.js; else node dist/src/index.js; fi'",
+    "prisma:generate": "prisma generate",
+    "prisma:push": "prisma db push",
+    "test": "jest --runInBand",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
-  "dependencies": {},
+  "dependencies": {
+    "express": "^4.18.2",
+    "@prisma/client": "^5.7.0",
+    "prisma": "^5.7.0",
+    "bcrypt": "^5.1.1",
+    "jsonwebtoken": "^9.0.2",
+    "express-validator": "^7.0.1",
+    "pg": "^8.11.3",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0",
+    "dotenv": "^16.3.1",
+    "@turf/turf": "^6.5.0"
+  },
   "devDependencies": {
-    "typescript": "^5.5.3"
+    "typescript": "^5.5.3",
+    "@types/express": "^4.17.21",
+    "@types/bcrypt": "^5.0.0",
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/express-validator": "^3.0.0",
+    "@types/jest": "^29.5.14",
+    "@types/pg": "^8.10.9",
+    "@types/supertest": "^6.0.3",
+    "@types/cors": "^2.8.16",
+    "@types/node": "^20.10.0",
+    "jest": "^29.7.0",
+    "supertest": "^7.1.1",
+    "ts-jest": "^29.2.5"
   },
   "private": true
 }
