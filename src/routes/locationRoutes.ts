@@ -21,4 +21,13 @@ router.put('/:locationId', authenticateToken, authorizeRoles(Role.ADMIN, Role.CH
 // DELETE /locations/{locationId} - ADMIN only
 router.delete('/:locationId', authenticateToken, authorizeRoles(Role.ADMIN), validate({ params: locationIdParamsSchema }), asyncHandler(locationController.deleteLocation.bind(locationController)));
 
+// GET /locations/geohash - authenticated
+router.get('/geohash', authenticateToken, validate({ query: geohashQuerySchema }), asyncHandler(locationController.getGeohash.bind(locationController)));
+
+// GET /locations/geohashv2 - authenticated
+router.get('/geohashv2', authenticateToken, validate({ query: geohashQuerySchema }), asyncHandler(locationController.getGeohashV2.bind(locationController)));
+
+// GET /locations/geohashv3 - authenticated
+router.get('/geohashv3', authenticateToken, validate({ query: geohashQuerySchema }), asyncHandler(locationController.getGeohashV3.bind(locationController)));
+
 export default router;

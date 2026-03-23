@@ -30,6 +30,7 @@ export class AreaController {
   async createArea(req: Request, res: Response) {
     const { name, areaPoints } = req.body as CreateAreaRequestDto;
     console.log('Creating area:', { name, areaPoints });
+    
     const area = await this.areaService.createArea({ name, areaPoints });
     console.log('Area created:', area);
 
@@ -67,11 +68,16 @@ export class AreaController {
     }
 
     const { startDate, endDate } = req.query as unknown as AreaAnalyticsQueryDto;
-    const analytics = await this.areaService.getAreaAnalytics(
-      id,
-      new Date(startDate),
-      new Date(endDate),
-    );
+    
+    // Parse dates - handle both YYYY-MM-DD and ISO datetime formats
+    const start = startDate.includes('T') ? new Date(startDate) : new Date(startDate + 'T00:00:00.000Z');
+    const end = endDate.includes('T') ? new Date(endDate) : new Date(endDate + 'T23:59:59.999Z');
+    
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      throw new BadRequestError('Invalid date format');
+    }
+    
+    const analytics = await this.areaService.getAreaAnalytics(id, start, end);
 
     res.status(200).json(analytics);
   }

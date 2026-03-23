@@ -90,6 +90,29 @@ export const validateAreaPoints = (areaPoints: AreaPoint[]) => {
     throw new BadRequestError('All area points lie on one line');
   }
 
+  // Check if polygon crosses antimeridian
+  const crossesAntimeridian = areaPoints.some((point, i) => {
+    const nextPoint = areaPoints[(i + 1) % areaPoints.length];
+    const lonDiff = Math.abs(point.longitude - nextPoint.longitude);
+    return lonDiff > 180;
+  });
+  if (crossesAntimeridian) {
+    throw new BadRequestError('Area cannot cross the antimeridian');
+  }
+
+  // Check if polygon is too small (degenerate)
+  const minLat = Math.min(...areaPoints.map(p => p.latitude));
+  const maxLat = Math.max(...areaPoints.map(p => p.latitude));
+  const minLon = Math.min(...areaPoints.map(p => p.longitude));
+  const maxLon = Math.max(...areaPoints.map(p => p.longitude));
+  
+  const latSpan = maxLat - minLat;
+  const lonSpan = maxLon - minLon;
+  
+  if (latSpan < 0.001 || lonSpan < 0.001) {
+    throw new BadRequestError('Area is too small');
+  }
+
   for (let i = 0; i < areaPoints.length; i += 1) {
     const a1 = areaPoints[i];
     const a2 = areaPoints[(i + 1) % areaPoints.length];

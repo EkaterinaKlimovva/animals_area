@@ -67,17 +67,51 @@ export class LocationController {
     res.status(200).send();
   }
 
-  // GET /locations/geohash?lat=&lng=
+  // GET /locations/geohash?lat=&lng= or ?latitude=&longitude=
   async getGeohash(req: Request, res: Response) {
-    const { lat, lng } = req.query as { lat: string; lng: string };
-    const latitude = parseFloat(lat);
-    const longitude = parseFloat(lng);
+    const lat = req.query.lat ?? req.query.latitude;
+    const lng = req.query.lng ?? req.query.longitude;
+    
+    const latitude = parseFloat(lat as string);
+    const longitude = parseFloat(lng as string);
 
     if (isNaN(latitude) || isNaN(longitude)) {
       throw new BadRequestError('Invalid latitude or longitude');
     }
 
     const hash = geohash.encode(latitude, longitude);
+    res.status(200).json({ geohash: hash });
+  }
+
+  // GET /locations/geohashv2?lat=&lng= or ?latitude=&longitude=
+  async getGeohashV2(req: Request, res: Response) {
+    const lat = req.query.lat ?? req.query.latitude;
+    const lng = req.query.lng ?? req.query.longitude;
+    
+    const latitude = parseFloat(lat as string);
+    const longitude = parseFloat(lng as string);
+
+    if (isNaN(latitude) || isNaN(longitude)) {
+      throw new BadRequestError('Invalid latitude or longitude');
+    }
+
+    const hash = geohash.encode(latitude, longitude, 10);
+    res.status(200).json({ geohash: hash });
+  }
+
+  // GET /locations/geohashv3?lat=&lng= or ?latitude=&longitude=
+  async getGeohashV3(req: Request, res: Response) {
+    const lat = req.query.lat ?? req.query.latitude;
+    const lng = req.query.lng ?? req.query.longitude;
+    
+    const latitude = parseFloat(lat as string);
+    const longitude = parseFloat(lng as string);
+
+    if (isNaN(latitude) || isNaN(longitude)) {
+      throw new BadRequestError('Invalid latitude or longitude');
+    }
+
+    const hash = geohash.encode(latitude, longitude, 12);
     res.status(200).json({ geohash: hash });
   }
 }

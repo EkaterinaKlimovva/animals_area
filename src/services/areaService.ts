@@ -32,8 +32,6 @@ export class AreaService {
     }
 
     const existingAreas = await this.areaRepository.findAll();
-    console.log('Existing areas:', existingAreas.map(a => ({ id: a.id, name: a.name })));
-    console.log('Creating area:', { name: data.name, areaPoints: data.areaPoints });
     
     if (existingAreas.some((area) => area.name === data.name)) {
       throw new ConflictError('Area with same name already exists');

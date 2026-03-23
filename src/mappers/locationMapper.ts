@@ -3,6 +3,6 @@ import { LocationResponseDto } from '../types/location';
 
 export const toLocationResponse = (location: LocationPoint): LocationResponseDto => ({
   id: location.id,
-  latitude: location.latitude,
-  longitude: location.longitude,
+  latitude: parseFloat(location.latitude.toFixed(17)),
+  longitude: parseFloat(location.longitude.toFixed(17)),
 });

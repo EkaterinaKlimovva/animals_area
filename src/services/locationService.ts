@@ -44,8 +44,9 @@ export class LocationService {
   }
 
   async createLocation(data: { latitude: number; longitude: number }): Promise<LocationPoint> {
-    const roundedLatitude = Math.round(data.latitude * 100000000000000) / 100000000000000;
-    const roundedLongitude = Math.round(data.longitude * 100000000000000) / 100000000000000;
+    // Use toFixed(15) to preserve precision without rounding errors
+    const roundedLatitude = parseFloat(data.latitude.toFixed(15));
+    const roundedLongitude = parseFloat(data.longitude.toFixed(15));
 
     await this.validateCoordinates(roundedLatitude, roundedLongitude);
 
@@ -87,8 +88,8 @@ export class LocationService {
         throw new BadRequestError('Location is used by animals');
       }
 
-      const newLat = data.latitude ?? location.latitude;
-      const newLng = data.longitude ?? location.longitude;
+      const newLat = data.latitude !== undefined ? parseFloat(data.latitude.toFixed(15)) : location.latitude;
+      const newLng = data.longitude !== undefined ? parseFloat(data.longitude.toFixed(15)) : location.longitude;
 
       await this.validateCoordinates(newLat, newLng);
 
@@ -100,14 +101,14 @@ export class LocationService {
       const areaId = await this.findAreaForLocation(newLat, newLng);
       if (areaId === null) {
         return this.locationRepository.update(id, {
-          latitude: data.latitude,
-          longitude: data.longitude,
+          latitude: newLat,
+          longitude: newLng,
         });
       }
 
       return this.locationRepository.update(id, {
-        latitude: data.latitude,
-        longitude: data.longitude,
+        latitude: newLat,
+        longitude: newLng,
         areaId,
       });
     }

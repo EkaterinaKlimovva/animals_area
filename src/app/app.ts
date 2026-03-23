@@ -9,11 +9,6 @@ import animalTypeRoutes from '../routes/animalTypeRoutes';
 import animalRoutes from '../routes/animalRoutes';
 import { seedDefaultAccounts } from '../utils/seed';
 import { errorHandler } from '../middleware/errorHandler';
-import { LocationController } from '../controllers/locationController';
-import { authenticateToken } from '../middleware/auth';
-import { validate } from '../middleware/validate';
-import { geohashQuerySchema } from '../validation/locationSchemas';
-import { asyncHandler } from '../utils/asyncHandler';
 
 dotenv.config();
 
@@ -32,15 +27,10 @@ app.use('/locations', locationRoutes);
 app.use('/animals/types', animalTypeRoutes);
 app.use('/animals', animalRoutes);
 
-const locationController = new LocationController();
-
 // Health check
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK' });
 });
-
-// GET /geohash - authenticated
-app.get('/geohash', authenticateToken, validate({ query: geohashQuerySchema }), asyncHandler(locationController.getGeohash.bind(locationController)));
 
 // Initialize default accounts
 void seedDefaultAccounts();
