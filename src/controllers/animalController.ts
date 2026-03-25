@@ -25,9 +25,7 @@ export class AnimalController {
       throw new BadRequestError('Invalid animal ID');
     }
 
-    console.log('Getting animal by ID:', id);
     const animal = await this.animalService.getAnimalById(id);
-    console.log('Animal found:', animal);
     if (!animal) {
       throw new NotFoundError('Animal not found');
     }
@@ -57,7 +55,6 @@ export class AnimalController {
 
   async createAnimal(req: Request, res: Response) {
     const { animalTypes, weight, length, height, gender, chipperId, chippingLocationId } = req.body as CreateAnimalRequestDto;
-    console.log('Creating animal:', { animalTypes, weight, length, height, gender, chipperId, chippingLocationId });
     const animal = await this.animalService.createAnimal({
       animalTypes,
       weight,
@@ -67,7 +64,6 @@ export class AnimalController {
       chipperId,
       chippingLocationId,
     });
-    console.log('Animal created:', animal);
 
     res.status(201).json(toAnimalResponse(animal));
   }
@@ -79,7 +75,6 @@ export class AnimalController {
     }
 
     const { weight, length, height, gender, lifeStatus, chipperId, chippingLocationId } = req.body as UpdateAnimalRequestDto;
-    console.log('Updating animal:', { id, weight, length, height, gender, lifeStatus, chipperId, chippingLocationId });
     const animal = await this.animalService.updateAnimal(id, {
       weight,
       length,
@@ -89,7 +84,6 @@ export class AnimalController {
       chipperId,
       chippingLocationId,
     });
-    console.log('Animal updated:', animal);
 
     if (!animal) {
       throw new NotFoundError('Animal not found');

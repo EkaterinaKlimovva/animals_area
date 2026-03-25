@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "start": "npm run build &&  node dist/src/app/app.js'",
+    "start": "npm run build && node dist/src/app/app.js",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "test": "jest --runInBand",

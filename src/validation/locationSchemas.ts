@@ -11,10 +11,10 @@ export const locationBodySchema = z.object({
 });
 
 export const geohashQuerySchema = z.object({
-  lat: z.string().optional(),
-  lng: z.string().optional(),
-  latitude: z.string().optional(),
-  longitude: z.string().optional(),
+  lat: z.coerce.number().optional(),
+  lng: z.coerce.number().optional(),
+  latitude: z.coerce.number().optional(),
+  longitude: z.coerce.number().optional(),
 }).refine(
   (data) => (data.lat !== undefined && data.lng !== undefined) || 
             (data.latitude !== undefined && data.longitude !== undefined),

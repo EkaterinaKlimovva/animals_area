@@ -44,9 +44,9 @@ export class LocationService {
   }
 
   async createLocation(data: { latitude: number; longitude: number }): Promise<LocationPoint> {
-    // Use toFixed(15) to preserve precision without rounding errors
-    const roundedLatitude = parseFloat(data.latitude.toFixed(15));
-    const roundedLongitude = parseFloat(data.longitude.toFixed(15));
+    // Use toFixed(17) to preserve precision without rounding errors
+    const roundedLatitude = parseFloat(data.latitude.toFixed(17));
+    const roundedLongitude = parseFloat(data.longitude.toFixed(17));
 
     await this.validateCoordinates(roundedLatitude, roundedLongitude);
 
@@ -88,8 +88,8 @@ export class LocationService {
         throw new BadRequestError('Location is used by animals');
       }
 
-      const newLat = data.latitude !== undefined ? parseFloat(data.latitude.toFixed(15)) : location.latitude;
-      const newLng = data.longitude !== undefined ? parseFloat(data.longitude.toFixed(15)) : location.longitude;
+      const newLat = data.latitude !== undefined ? parseFloat(data.latitude.toFixed(17)) : location.latitude;
+      const newLng = data.longitude !== undefined ? parseFloat(data.longitude.toFixed(17)) : location.longitude;
 
       await this.validateCoordinates(newLat, newLng);
 

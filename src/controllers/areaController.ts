@@ -29,10 +29,8 @@ export class AreaController {
   // POST /areas
   async createArea(req: Request, res: Response) {
     const { name, areaPoints } = req.body as CreateAreaRequestDto;
-    console.log('Creating area:', { name, areaPoints });
     
     const area = await this.areaService.createArea({ name, areaPoints });
-    console.log('Area created:', area);
 
     res.status(201).json(toAreaResponse(area));
   }

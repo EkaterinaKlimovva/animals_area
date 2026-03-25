@@ -91,6 +91,18 @@ export const validateAreaPoints = (areaPoints: AreaPoint[]) => {
   }
 
   // Check if polygon crosses antimeridian
+  // A polygon crosses antimeridian if it spans across the 180/-180 boundary
+  const lons = areaPoints.map(p => p.longitude);
+  const minLon = Math.min(...lons);
+  const maxLon = Math.max(...lons);
+  
+  // If the polygon spans more than 180 degrees of longitude, it likely crosses antimeridian
+  const lonSpan = maxLon - minLon;
+  if (lonSpan > 180) {
+    throw new BadRequestError('Area cannot cross the antimeridian');
+  }
+  
+  // Also check if any edge crosses the antimeridian
   const crossesAntimeridian = areaPoints.some((point, i) => {
     const nextPoint = areaPoints[(i + 1) % areaPoints.length];
     const lonDiff = Math.abs(point.longitude - nextPoint.longitude);
@@ -103,11 +115,8 @@ export const validateAreaPoints = (areaPoints: AreaPoint[]) => {
   // Check if polygon is too small (degenerate)
   const minLat = Math.min(...areaPoints.map(p => p.latitude));
   const maxLat = Math.max(...areaPoints.map(p => p.latitude));
-  const minLon = Math.min(...areaPoints.map(p => p.longitude));
-  const maxLon = Math.max(...areaPoints.map(p => p.longitude));
   
   const latSpan = maxLat - minLat;
-  const lonSpan = maxLon - minLon;
   
   if (latSpan < 0.001 || lonSpan < 0.001) {
     throw new BadRequestError('Area is too small');

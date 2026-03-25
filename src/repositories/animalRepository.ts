@@ -239,7 +239,18 @@ export class AnimalRepository {
     dateTimeOfVisitLocation: Date;
     visitedByAccountId?: number;
   }): Promise<AnimalVisitedLocation> {
-    return prisma.animalVisitedLocation.create({ data });
+    // Get the location point to determine the areaId
+    const locationPoint = await prisma.locationPoint.findUnique({
+      where: { id: data.locationPointId },
+      select: { areaId: true },
+    });
+
+    return prisma.animalVisitedLocation.create({
+      data: {
+        ...data,
+        areaId: locationPoint?.areaId,
+      },
+    });
   }
 
   async findVisitedLocationById(id: number): Promise<AnimalVisitedLocation | null> {
@@ -254,9 +265,24 @@ export class AnimalRepository {
     }>,
   ): Promise<AnimalVisitedLocation | null> {
     try {
+      const updateData: {
+        locationPointId?: number;
+        dateTimeOfVisitLocation?: Date;
+        areaId?: number | null;
+      } = { ...data };
+
+      // If locationPointId is being updated, also update the areaId
+      if (data.locationPointId !== undefined) {
+        const locationPoint = await prisma.locationPoint.findUnique({
+          where: { id: data.locationPointId },
+          select: { areaId: true },
+        });
+        updateData.areaId = locationPoint?.areaId;
+      }
+
       return await prisma.animalVisitedLocation.update({
         where: { id },
-        data,
+        data: updateData,
       });
     } catch {
       return null;
