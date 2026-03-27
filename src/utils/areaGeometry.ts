@@ -102,6 +102,25 @@ export const validateAreaPoints = (areaPoints: AreaPoint[]): void => {
     throw new BadRequestError(ERROR_MESSAGES.AREA_ANTIMERIDIAN);
   }
   
+  // Check if polygon spans across antimeridian by detecting wraparound
+  // A polygon crosses antimeridian if it has points on both sides and the span is > 180 degrees when considering wraparound
+  const hasPositiveLon = lons.some(lon => lon >= 0);
+  const hasNegativeLon = lons.some(lon => lon < 0);
+  
+  if (hasPositiveLon && hasNegativeLon) {
+    // Calculate the actual span considering wraparound
+    const positiveLons = lons.filter(lon => lon >= 0);
+    const negativeLons = lons.filter(lon => lon < 0);
+    
+    const minPos = positiveLons.length > 0 ? Math.min(...positiveLons) : 180;
+    const maxNeg = negativeLons.length > 0 ? Math.max(...negativeLons) : -180;
+    
+    const wraparoundSpan = (180 - minPos) + (maxNeg + 180);
+    if (wraparoundSpan < AREA_VALIDATION.MAX_LON_SPAN) {
+      throw new BadRequestError(ERROR_MESSAGES.AREA_ANTIMERIDIAN);
+    }
+  }
+  
   // Also check if any edge crosses the antimeridian
   const crossesAntimeridian = areaPoints.some((point, i) => {
     const nextPoint = areaPoints[(i + 1) % areaPoints.length];

@@ -165,21 +165,26 @@ export class AreaRepository {
       }
     }
 
-    // Подсчитываем уникальных животных
-    const totalQuantityAnimals = visitsByAnimal.size;
+    // Подсчитываем уникальных животных в зоне в указанный период
+    const totalQuantityAnimals = new Set<number>();
+    
+    for (const visit of allVisits) {
+      if (visit.dateTimeOfVisitLocation >= startDate && visit.dateTimeOfVisitLocation <= endDate) {
+        totalQuantityAnimals.add(visit.animalId);
+      }
+    }
 
-    // Определяем прибывших (те, у кого ЕСТЬ посещения в периоде, но НЕТ до периода)
+    // Определяем прибывших (те, у кого НЕТ посещений до периода, но ЕСТЬ в периоде)
     const arrivedAnimalIds = new Set<number>();
-    // Определяем убывших (те, у кого ЕСТЬ посещения после периода, но НЕТ в периоде)
+    // Определяем убывших (те, у кого ЕСТЬ посещения в периоде, но НЕТ после периода)
     const goneAnimalIds = new Set<number>();
 
     for (const [animalId, data] of visitsByAnimal.entries()) {
-      const hasVisitInPeriod = data.hasBefore || data.hasAfter || 
-        allVisits.some(visit => 
-          visit.animalId === animalId && 
-          visit.dateTimeOfVisitLocation >= startDate && 
-          visit.dateTimeOfVisitLocation <= endDate
-        );
+      const hasVisitInPeriod = allVisits.some(visit => 
+        visit.animalId === animalId && 
+        visit.dateTimeOfVisitLocation >= startDate && 
+        visit.dateTimeOfVisitLocation <= endDate
+      );
       
       if (hasVisitInPeriod && !data.hasBefore) {
         arrivedAnimalIds.add(animalId);
@@ -224,7 +229,7 @@ export class AreaRepository {
     }));
 
     return {
-      totalQuantityAnimals,
+      totalQuantityAnimals: totalQuantityAnimals.size,
       totalAnimalsArrived: arrivedAnimalIds.size,
       totalAnimalsGone: goneAnimalIds.size,
       animalsAnalytics: animalsAnalytics.sort((left, right) => left.animalTypeId - right.animalTypeId),

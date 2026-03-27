@@ -12,6 +12,29 @@ export class LocationController {
     this.locationService = new LocationService();
   }
 
+  // GET /locations
+  async searchLocations(req: Request, res: Response) {
+    const { latitude, longitude } = req.query;
+    
+    if (latitude === undefined || longitude === undefined) {
+      throw new BadRequestError('Latitude and longitude are required');
+    }
+    
+    const lat = parseFloat(String(latitude));
+    const lng = parseFloat(String(longitude));
+    
+    if (isNaN(lat) || isNaN(lng)) {
+      throw new BadRequestError('Invalid latitude or longitude');
+    }
+    
+    const location = await this.locationService.findByCoordinates(lat, lng);
+    if (!location) {
+      throw new NotFoundError('Location not found');
+    }
+    
+    res.status(200).send(location.id.toString());
+  }
+
   // GET /locations/{locationId}
   async getLocationById(req: Request, res: Response) {
     const id = parseInt(req.params.locationId, 10);

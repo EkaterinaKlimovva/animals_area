@@ -7,7 +7,7 @@ export const COORDINATE_LIMITS = {
 
 export const AREA_VALIDATION = {
   MIN_POINTS: 3,
-  MIN_AREA_SIZE: 0.01,
+  MIN_AREA_SIZE: 0.1,
   MAX_LON_SPAN: 180,
   EPSILON: 1e-4,
 } as const;

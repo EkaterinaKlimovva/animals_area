@@ -18,6 +18,9 @@ router.get('/geohashv2', authenticateToken, validate({ query: geohashQuerySchema
 // GET /locations/geohashv3 - authenticated
 router.get('/geohashv3', authenticateToken, validate({ query: geohashQuerySchema }), asyncHandler(locationController.getGeohashV3.bind(locationController)));
 
+// GET /locations - authenticated
+router.get('/', authenticateToken, asyncHandler(locationController.searchLocations.bind(locationController)));
+
 // GET /locations/{locationId} - authenticated
 router.get('/:locationId', authenticateToken, validate({ params: locationIdParamsSchema }), asyncHandler(locationController.getLocationById.bind(locationController)));
 
