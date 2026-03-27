@@ -88,8 +88,8 @@ export class LocationService {
         throw new BadRequestError('Location is used by animals');
       }
 
-      const newLat = data.latitude !== undefined ? parseFloat(data.latitude.toFixed(15)) : Number(location.latitude);
-      const newLng = data.longitude !== undefined ? parseFloat(data.longitude.toFixed(15)) : Number(location.longitude);
+      const newLat = data.latitude !== undefined ? data.latitude : parseFloat(location.latitude.toPrecision(18));
+      const newLng = data.longitude !== undefined ? data.longitude : parseFloat(location.longitude.toPrecision(18));
 
       await this.validateCoordinates(newLat, newLng);
 

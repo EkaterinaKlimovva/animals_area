@@ -7,6 +7,7 @@ import areaRoutes from '../routes/areaRoutes';
 import locationRoutes from '../routes/locationRoutes';
 import animalTypeRoutes from '../routes/animalTypeRoutes';
 import animalRoutes from '../routes/animalRoutes';
+import geoHashRoutes from '../routes/geoHashRoutes';
 import { seedDefaultAccounts } from '../utils/seed';
 import { errorHandler } from '../middleware/errorHandler';
 
@@ -26,6 +27,7 @@ app.use('/areas', areaRoutes);
 app.use('/locations', locationRoutes);
 app.use('/animals/types', animalTypeRoutes);
 app.use('/animals', animalRoutes);
+app.use('/geohash', geoHashRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

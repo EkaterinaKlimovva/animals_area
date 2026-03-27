@@ -168,16 +168,23 @@ export class AreaRepository {
     // Подсчитываем уникальных животных
     const totalQuantityAnimals = visitsByAnimal.size;
 
-    // Определяем прибывших (те, у кого НЕТ посещений до периода)
+    // Определяем прибывших (те, у кого ЕСТЬ посещения в периоде, но НЕТ до периода)
     const arrivedAnimalIds = new Set<number>();
-    // Определяем убывших (те, у кого НЕТ посещений после периода)
+    // Определяем убывших (те, у кого ЕСТЬ посещения после периода, но НЕТ в периоде)
     const goneAnimalIds = new Set<number>();
 
     for (const [animalId, data] of visitsByAnimal.entries()) {
-      if (!data.hasBefore) {
+      const hasVisitInPeriod = data.hasBefore || data.hasAfter || 
+        allVisits.some(visit => 
+          visit.animalId === animalId && 
+          visit.dateTimeOfVisitLocation >= startDate && 
+          visit.dateTimeOfVisitLocation <= endDate
+        );
+      
+      if (hasVisitInPeriod && !data.hasBefore) {
         arrivedAnimalIds.add(animalId);
       }
-      if (!data.hasAfter) {
+      if (hasVisitInPeriod && !data.hasAfter) {
         goneAnimalIds.add(animalId);
       }
     }

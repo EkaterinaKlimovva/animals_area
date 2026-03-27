@@ -1,10 +1,7 @@
 import { z } from 'zod';
-import { isoDateSchema, positiveIntStringSchema, trimmedStringSchema } from './commonSchemas';
+import { isoDateSchema, positiveIntStringSchema, trimmedStringSchema, coordinatesSchema } from './commonSchemas';
 
-export const areaPointSchema = z.object({
-  latitude: z.coerce.number().min(-90).max(90),
-  longitude: z.coerce.number().min(-180).max(180),
-});
+export const areaPointSchema = coordinatesSchema;
 
 export const areaIdParamsSchema = z.object({
   areaId: positiveIntStringSchema,

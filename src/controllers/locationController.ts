@@ -79,7 +79,7 @@ export class LocationController {
       throw new BadRequestError('Invalid latitude or longitude');
     }
 
-    const hash = geohash.encode(latitude, longitude);
+    const hash = geohash.encode(latitude, longitude, 12);
     res.status(200).send(hash);
   }
 
@@ -95,7 +95,7 @@ export class LocationController {
       throw new BadRequestError('Invalid latitude or longitude');
     }
 
-    const hash = geohash.encode(latitude, longitude, 10);
+    const hash = geohash.encode(latitude, longitude, 12);
     res.status(200).send(hash);
   }
 

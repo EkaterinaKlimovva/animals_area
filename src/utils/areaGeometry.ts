@@ -1,20 +1,19 @@
 import { BadRequestError } from '../errors/httpErrors';
+import { AREA_VALIDATION } from '../constants/validation';
+import { ERROR_MESSAGES } from '../constants/errorMessages';
+import { type Coordinates } from '../types/common';
 
-export interface AreaPoint {
-  latitude: number;
-  longitude: number;
-}
-
-const EPSILON = 1e-4;
+export interface AreaPoint extends Coordinates {}
 
 const samePoint = (a: AreaPoint, b: AreaPoint) =>
-  Math.abs(a.latitude - b.latitude) < EPSILON && Math.abs(a.longitude - b.longitude) < EPSILON;
+  Math.abs(a.latitude - b.latitude) < AREA_VALIDATION.EPSILON && 
+  Math.abs(a.longitude - b.longitude) < AREA_VALIDATION.EPSILON;
 
 const orientation = (a: AreaPoint, b: AreaPoint, c: AreaPoint) => {
   const value = (b.longitude - a.longitude) * (c.latitude - b.latitude)
     - (b.latitude - a.latitude) * (c.longitude - b.longitude);
 
-  if (Math.abs(value) < EPSILON) {
+  if (Math.abs(value) < AREA_VALIDATION.EPSILON) {
     return 0;
   }
 
@@ -22,10 +21,10 @@ const orientation = (a: AreaPoint, b: AreaPoint, c: AreaPoint) => {
 };
 
 const onSegment = (a: AreaPoint, b: AreaPoint, c: AreaPoint) => {
-  return b.longitude <= Math.max(a.longitude, c.longitude) + EPSILON
-    && b.longitude + EPSILON >= Math.min(a.longitude, c.longitude)
-    && b.latitude <= Math.max(a.latitude, c.latitude) + EPSILON
-    && b.latitude + EPSILON >= Math.min(a.latitude, c.latitude);
+  return b.longitude <= Math.max(a.longitude, c.longitude) + AREA_VALIDATION.EPSILON
+    && b.longitude + AREA_VALIDATION.EPSILON >= Math.min(a.longitude, c.longitude)
+    && b.latitude <= Math.max(a.latitude, c.latitude) + AREA_VALIDATION.EPSILON
+    && b.latitude + AREA_VALIDATION.EPSILON >= Math.min(a.latitude, c.latitude);
 };
 
 const segmentsIntersect = (p1: AreaPoint, q1: AreaPoint, p2: AreaPoint, q2: AreaPoint) => {
@@ -57,7 +56,7 @@ const pointInPolygon = (point: AreaPoint, polygon: AreaPoint[]) => {
 
     const intersect = ((yi > point.latitude) !== (yj > point.latitude))
       && point.longitude
-        < ((xj - xi) * (point.latitude - yi)) / ((yj - yi) || EPSILON) + xi;
+        < ((xj - xi) * (point.latitude - yi)) / ((yj - yi) || AREA_VALIDATION.EPSILON) + xi;
 
     if (intersect) inside = !inside;
   }
@@ -65,9 +64,9 @@ const pointInPolygon = (point: AreaPoint, polygon: AreaPoint[]) => {
   return inside;
 };
 
-export const validateAreaPoints = (areaPoints: AreaPoint[]) => {
-  if (!Array.isArray(areaPoints) || areaPoints.length < 3) {
-    throw new BadRequestError('Area points must contain at least 3 points');
+export const validateAreaPoints = (areaPoints: AreaPoint[]): void => {
+  if (!Array.isArray(areaPoints) || areaPoints.length < AREA_VALIDATION.MIN_POINTS) {
+    throw new BadRequestError(ERROR_MESSAGES.AREA_MIN_POINTS);
   }
 
   for (const point of areaPoints) {
@@ -75,41 +74,42 @@ export const validateAreaPoints = (areaPoints: AreaPoint[]) => {
       throw new BadRequestError('Area point is required');
     }
     if (point.latitude < -90 || point.latitude > 90 || point.longitude < -180 || point.longitude > 180) {
-      throw new BadRequestError('Invalid coordinates');
+      throw new BadRequestError(ERROR_MESSAGES.INVALID_COORDINATES);
     }
   }
 
   const uniquePoints = new Set(areaPoints.map((point) => `${point.latitude}:${point.longitude}`));
   if (uniquePoints.size !== areaPoints.length) {
-    throw new BadRequestError('Area must not contain duplicate points');
+    throw new BadRequestError(ERROR_MESSAGES.AREA_DUPLICATE_POINTS);
   }
 
-  const base = areaPoints[0];
-  const allCollinear = areaPoints.slice(2).every((point) => orientation(base, areaPoints[1], point) === 0);
-  if (allCollinear) {
-    throw new BadRequestError('All area points lie on one line');
+  // Check for collinear points
+  if (areaPoints.length >= 3) {
+    const base = areaPoints[0];
+    const allCollinear = areaPoints.slice(2).every((point) => orientation(base, areaPoints[1], point) === 0);
+    if (allCollinear) {
+      throw new BadRequestError(ERROR_MESSAGES.AREA_COLLINEAR);
+    }
   }
 
   // Check if polygon crosses antimeridian
-  // A polygon crosses antimeridian if it spans across the 180/-180 boundary
   const lons = areaPoints.map(p => p.longitude);
   const minLon = Math.min(...lons);
   const maxLon = Math.max(...lons);
   
-  // If the polygon spans more than 180 degrees of longitude, it likely crosses antimeridian
   const lonSpan = maxLon - minLon;
-  if (lonSpan > 180) {
-    throw new BadRequestError('Area cannot cross the antimeridian');
+  if (lonSpan > AREA_VALIDATION.MAX_LON_SPAN) {
+    throw new BadRequestError(ERROR_MESSAGES.AREA_ANTIMERIDIAN);
   }
   
   // Also check if any edge crosses the antimeridian
   const crossesAntimeridian = areaPoints.some((point, i) => {
     const nextPoint = areaPoints[(i + 1) % areaPoints.length];
     const lonDiff = Math.abs(point.longitude - nextPoint.longitude);
-    return lonDiff > 180;
+    return lonDiff > AREA_VALIDATION.MAX_LON_SPAN;
   });
   if (crossesAntimeridian) {
-    throw new BadRequestError('Area cannot cross the antimeridian');
+    throw new BadRequestError(ERROR_MESSAGES.AREA_ANTIMERIDIAN);
   }
 
   // Check if polygon is too small (degenerate)
@@ -118,10 +118,11 @@ export const validateAreaPoints = (areaPoints: AreaPoint[]) => {
   
   const latSpan = maxLat - minLat;
   
-  if (latSpan < 0.001 || lonSpan < 0.001) {
-    throw new BadRequestError('Area is too small');
+  if (latSpan < AREA_VALIDATION.MIN_AREA_SIZE || lonSpan < AREA_VALIDATION.MIN_AREA_SIZE) {
+    throw new BadRequestError(ERROR_MESSAGES.AREA_TOO_SMALL);
   }
 
+  // Check for self-intersecting polygon
   for (let i = 0; i < areaPoints.length; i += 1) {
     const a1 = areaPoints[i];
     const a2 = areaPoints[(i + 1) % areaPoints.length];
@@ -139,7 +140,7 @@ export const validateAreaPoints = (areaPoints: AreaPoint[]) => {
       }
 
       if (segmentsIntersect(a1, a2, b1, b2)) {
-        throw new BadRequestError('Area borders intersect themselves');
+        throw new BadRequestError(ERROR_MESSAGES.AREA_SELF_INTERSECT);
       }
     }
   }
