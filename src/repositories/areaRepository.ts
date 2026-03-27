@@ -1,6 +1,7 @@
 import { Area, Prisma } from '@prisma/client';
 import prisma from '../../config/database';
 import { AreaPoint } from '../utils/areaGeometry';
+import { BadRequestError, NotFoundError } from '../errors/httpErrors';
 
 export interface AreaAnalytics {
   totalQuantityAnimals: number;
@@ -68,7 +69,22 @@ export class AreaRepository {
   }
 
   async getAreaAnalytics(areaId: number, startDate: Date, endDate: Date): Promise<AreaAnalytics> {
-    // Получаем уникальные animalIds, которые посещали зону в периоде
+    if (areaId <= 0) {
+      throw new BadRequestError('Invalid area ID');
+    }
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+      throw new BadRequestError('Invalid analytics period');
+    }
+    if (startDate >= endDate) {
+      throw new BadRequestError('startDate must be before endDate');
+    }
+
+    const area = await this.findById(areaId);
+    if (!area) {
+      throw new NotFoundError('Area not found');
+    }
+
+    // Получаем уникальные animalIds, которые посещали зону в указанный период
     const animalIdsInPeriod = await prisma.animalVisitedLocation.findMany({
       where: {
         areaId: areaId,
@@ -94,7 +110,7 @@ export class AreaRepository {
       };
     }
 
-    // Получаем все посещения этих животных в зоне
+    // Получаем все посещения этих животных в данной зоне (всех времен)
     const allVisits = await prisma.animalVisitedLocation.findMany({
       where: {
         areaId: areaId,
@@ -123,50 +139,45 @@ export class AreaRepository {
       },
     });
 
-    // Группируем посещения по животным, определяя общее первое и последнее посещение
-    const visitsByAnimal = new Map<number, { firstVisit: Date; lastVisit: Date; types: { id: number; type: string }[] }>();
+    // Группируем по животным, собирая типы и определяя наличие посещений до и после периода
+    const visitsByAnimal = new Map<number, { 
+      types: { id: number; type: string }[]; 
+      hasBefore: boolean; 
+      hasAfter: boolean 
+    }>();
 
     for (const visit of allVisits) {
       const animalId = visit.animalId;
       const types = visit.animal.types.map(t => ({ id: t.animalType.id, type: t.animalType.type }));
 
       if (!visitsByAnimal.has(animalId)) {
-        visitsByAnimal.set(animalId, {
-          firstVisit: visit.dateTimeOfVisitLocation,
-          lastVisit: visit.dateTimeOfVisitLocation,
-          types,
-        });
-      } else {
-        const data = visitsByAnimal.get(animalId)!;
-        if (visit.dateTimeOfVisitLocation < data.firstVisit) {
-          data.firstVisit = visit.dateTimeOfVisitLocation;
-        }
-        if (visit.dateTimeOfVisitLocation > data.lastVisit) {
-          data.lastVisit = visit.dateTimeOfVisitLocation;
-        }
+        visitsByAnimal.set(animalId, { types, hasBefore: false, hasAfter: false });
+      }
+
+      const data = visitsByAnimal.get(animalId)!;
+      const visitTime = visit.dateTimeOfVisitLocation;
+
+      if (visitTime < startDate) {
+        data.hasBefore = true;
+      }
+      if (visitTime > endDate) {
+        data.hasAfter = true;
       }
     }
 
     // Подсчитываем уникальных животных
-    const uniqueAnimalIds = [...visitsByAnimal.keys()];
-    const totalQuantityAnimals = uniqueAnimalIds.length;
+    const totalQuantityAnimals = visitsByAnimal.size;
 
-    // Определяем животных, которые вошли в зону в указанный период
-    // (первое посещение зоны в периоде)
+    // Определяем прибывших (те, у кого НЕТ посещений до периода)
     const arrivedAnimalIds = new Set<number>();
-    for (const [animalId, visits] of visitsByAnimal.entries()) {
-      // Проверяем, что первое посещение в периоде
-      if (visits.firstVisit >= startDate && visits.firstVisit <= endDate) {
+    // Определяем убывших (те, у кого НЕТ посещений после периода)
+    const goneAnimalIds = new Set<number>();
+
+    for (const [animalId, data] of visitsByAnimal.entries()) {
+      if (!data.hasBefore) {
         arrivedAnimalIds.add(animalId);
       }
-    }
-
-    // Определяем животных, которые вышли из зоны в указанный период
-    // (последнее посещение зоны в периоде)
-    const goneAnimalIds = new Set<number>();
-    for (const [animalId, visits] of visitsByAnimal.entries()) {
-      // Проверяем, что последнее посещение в периоде
-      if (visits.lastVisit >= startDate && visits.lastVisit <= endDate) {
+      if (!data.hasAfter) {
         goneAnimalIds.add(animalId);
       }
     }
@@ -174,8 +185,8 @@ export class AreaRepository {
     // Группируем по типам животных
     const analyticsByType = new Map<number, { animalType: string; quantityAnimals: Set<number>; animalsArrived: Set<number>; animalsGone: Set<number> }>();
 
-    for (const [animalId, visits] of visitsByAnimal.entries()) {
-      for (const type of visits.types) {
+    for (const [animalId, data] of visitsByAnimal.entries()) {
+      for (const type of data.types) {
         const stats = analyticsByType.get(type.id) ?? {
           animalType: type.type,
           quantityAnimals: new Set<number>(),

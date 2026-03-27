@@ -9,7 +9,7 @@ import { accountIdParamsSchema, accountSearchQuerySchema, createAccountBodySchem
 const router = Router();
 const accountController = new AccountController();
 
-// POST /registration - public
+// POST /registration - public (but not for authenticated users)
 router.post('/registration', optionalAuthenticate, validate({ body: registrationBodySchema }), asyncHandler(accountController.register.bind(accountController)));
 
 // GET /accounts/search - authenticated
