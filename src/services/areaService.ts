@@ -21,7 +21,7 @@ export class AreaService {
 
       const existingPoints = area.areaPoints as unknown as AreaPoint[];
       if (arePolygonsEquivalent(areaPoints, existingPoints)) {
-        throw new ConflictError('Area with same points already exists');
+        throw new BadRequestError('Area with same points already exists');
       }
     }
   }

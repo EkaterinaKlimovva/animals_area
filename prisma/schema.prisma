@@ -98,8 +98,8 @@ model AnimalTypeOnAnimal {
 
 model LocationPoint {
   id                Int                    @id @default(autoincrement())
-  latitude          Float
-  longitude         Float
+  latitude          Decimal                @db.Decimal(25, 20)
+  longitude         Decimal                @db.Decimal(25, 20)
   areaId            Int?                   @map("area_id")
 
   // Relations

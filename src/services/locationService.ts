@@ -49,9 +49,9 @@ export class LocationService {
   }
 
   async createLocation(data: { latitude: number; longitude: number }): Promise<LocationPoint> {
-    // Use toPrecision(17) to preserve maximum precision without adding trailing zeros
-    const roundedLatitude = parseFloat(data.latitude.toPrecision(17));
-    const roundedLongitude = parseFloat(data.longitude.toPrecision(17));
+    // Convert to Decimal with full precision
+    const roundedLatitude = parseFloat(data.latitude.toString());
+    const roundedLongitude = parseFloat(data.longitude.toString());
 
     await this.validateCoordinates(roundedLatitude, roundedLongitude);
 
@@ -93,8 +93,8 @@ export class LocationService {
         throw new BadRequestError('Location is used by animals');
       }
 
-      const newLat = data.latitude !== undefined ? data.latitude : parseFloat(location.latitude.toFixed(17));
-      const newLng = data.longitude !== undefined ? data.longitude : parseFloat(location.longitude.toFixed(17));
+      const newLat = data.latitude !== undefined ? data.latitude : parseFloat(location.latitude.toString());
+      const newLng = data.longitude !== undefined ? data.longitude : parseFloat(location.longitude.toString());
 
       await this.validateCoordinates(newLat, newLng);
 

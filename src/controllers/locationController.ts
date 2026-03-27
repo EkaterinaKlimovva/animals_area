@@ -103,7 +103,16 @@ export class LocationController {
     }
 
     const hash = geohash.encode(latitude, longitude, 12);
-    res.status(200).send(hash);
+    
+    // Check if base64 encoding is requested
+    const acceptHeader = req.headers.accept || '';
+    if (acceptHeader.includes('application/base64') || req.query.format === 'base64') {
+      const base64Geohash = Buffer.from(hash).toString('base64');
+      res.status(200).type('text/plain').send(base64Geohash);
+      return;
+    }
+    
+    res.status(200).type('text/plain').send(hash);
   }
 
   // GET /locations/geohashv2?lat=&lng= or ?latitude=&longitude=
@@ -119,7 +128,16 @@ export class LocationController {
     }
 
     const hash = geohash.encode(latitude, longitude, 12);
-    res.status(200).send(hash);
+    
+    // Check if base64 encoding is requested
+    const acceptHeader = req.headers.accept || '';
+    if (acceptHeader.includes('application/base64') || req.query.format === 'base64') {
+      const base64Geohash = Buffer.from(hash).toString('base64');
+      res.status(200).type('text/plain').send(base64Geohash);
+      return;
+    }
+    
+    res.status(200).type('text/plain').send(hash);
   }
 
   // GET /locations/geohashv3?lat=&lng= or ?latitude=&longitude=
@@ -135,6 +153,15 @@ export class LocationController {
     }
 
     const hash = geohash.encode(latitude, longitude, 12);
-    res.status(200).send(hash);
+    
+    // Check if base64 encoding is requested
+    const acceptHeader = req.headers.accept || '';
+    if (acceptHeader.includes('application/base64') || req.query.format === 'base64') {
+      const base64Geohash = Buffer.from(hash).toString('base64');
+      res.status(200).type('text/plain').send(base64Geohash);
+      return;
+    }
+    
+    res.status(200).type('text/plain').send(hash);
   }
 }

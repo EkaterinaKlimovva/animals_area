@@ -186,9 +186,11 @@ export class AreaRepository {
         visit.dateTimeOfVisitLocation <= endDate
       );
       
+      // Прибывшие: есть посещение в периоде, но нет до периода
       if (hasVisitInPeriod && !data.hasBefore) {
         arrivedAnimalIds.add(animalId);
       }
+      // Убывшие: есть посещение в периоде, но нет после периода
       if (hasVisitInPeriod && !data.hasAfter) {
         goneAnimalIds.add(animalId);
       }
