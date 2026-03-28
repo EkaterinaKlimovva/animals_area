@@ -2,7 +2,7 @@ import { LocationPoint } from '@prisma/client';
 import prisma from '../../config/database';
 
 export class LocationRepository {
-  async create(data: { latitude: number; longitude: number; areaId?: number }): Promise<LocationPoint> {
+  async create(data: { latitude: string; longitude: string; areaId?: number }): Promise<LocationPoint> {
     return prisma.locationPoint.create({
       data,
     });
@@ -24,7 +24,7 @@ export class LocationRepository {
     });
   }
 
-  async update(id: number, data: Partial<{ latitude: number; longitude: number; areaId?: number | null }>): Promise<LocationPoint | null> {
+  async update(id: number, data: Partial<{ latitude: string; longitude: string; areaId?: number | null }>): Promise<LocationPoint | null> {
     try {
       return await prisma.locationPoint.update({
         where: { id },

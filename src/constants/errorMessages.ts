@@ -21,8 +21,8 @@ export const ERROR_MESSAGES = {
   AREA_SELF_INTERSECT: 'Area borders intersect themselves',
   AREA_NOT_FOUND: 'Area not found',
   AREA_NAME_EXISTS: 'Area with same name already exists',
-  
-  // Location validation
+
+   // Location validation
   LOCATION_NOT_FOUND: 'Location not found',
   LOCATION_COORDINATES_EXIST: 'Location with same coordinates already exists',
   LOCATION_USED_BY_ANIMALS: 'Location is used by animals',

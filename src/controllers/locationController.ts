@@ -53,6 +53,13 @@ export class LocationController {
   // POST /locations
   async createLocation(req: Request, res: Response) {
     const { latitude, longitude } = req.body as LocationRequestDto;
+    const lat = parseFloat(latitude);
+    const lng = parseFloat(longitude);
+
+    if (isNaN(lat) || isNaN(lng)) {
+      throw new BadRequestError('Invalid latitude or longitude');
+    }
+
     const location = await this.locationService.createLocation({ latitude, longitude });
 
     res.status(201).json(toLocationResponse(location));
@@ -66,6 +73,13 @@ export class LocationController {
     }
 
     const { latitude, longitude } = req.body as LocationRequestDto;
+    const lat = latitude !== undefined ? parseFloat(latitude) : undefined;
+    const lng = longitude !== undefined ? parseFloat(longitude) : undefined;
+
+    if ((lat !== undefined && isNaN(lat)) || (lng !== undefined && isNaN(lng))) {
+      throw new BadRequestError('Invalid latitude or longitude');
+    }
+
     const location = await this.locationService.updateLocation(id, { latitude, longitude });
 
     if (!location) {

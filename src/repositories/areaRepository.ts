@@ -139,11 +139,15 @@ export class AreaRepository {
       },
     });
 
-    // Группируем по животным, собирая типы и определяя наличие посещений до и после периода
-    const visitsByAnimal = new Map<number, { 
-      types: { id: number; type: string }[]; 
-      hasBefore: boolean; 
-      hasAfter: boolean 
+    // Создаем дату окончания периода включительно
+    const endDateInclusive = new Date(endDate);
+    endDateInclusive.setHours(23, 59, 59, 999);
+
+    // Группируем посещения по животным
+    const visitsByAnimal = new Map<number, {
+      types: { id: number; type: string }[];
+      visitsInPeriod: Date[];
+      hasAnyVisitInPeriod: boolean;
     }>();
 
     for (const visit of allVisits) {
@@ -151,74 +155,52 @@ export class AreaRepository {
       const types = visit.animal.types.map(t => ({ id: t.animalType.id, type: t.animalType.type }));
 
       if (!visitsByAnimal.has(animalId)) {
-        visitsByAnimal.set(animalId, { types, hasBefore: false, hasAfter: false });
+        visitsByAnimal.set(animalId, { types, visitsInPeriod: [], hasAnyVisitInPeriod: false });
       }
 
       const data = visitsByAnimal.get(animalId)!;
       const visitTime = visit.dateTimeOfVisitLocation;
 
-      if (visitTime < startDate) {
-        data.hasBefore = true;
-      }
-      if (visitTime > endDate) {
-        data.hasAfter = true;
+      if (visitTime >= startDate && visitTime <= endDateInclusive) {
+        data.visitsInPeriod.push(visitTime);
+        data.hasAnyVisitInPeriod = true;
       }
     }
 
-    // Подсчитываем уникальных животных в зоне в указанный период
+    // Подсчитываем итоговые значения
     const totalQuantityAnimals = new Set<number>();
-    
-    for (const visit of allVisits) {
-      if (visit.dateTimeOfVisitLocation >= startDate && visit.dateTimeOfVisitLocation <= endDate) {
-        totalQuantityAnimals.add(visit.animalId);
-      }
-    }
-
-    // Определяем прибывших (те, у кого НЕТ посещений до периода, но ЕСТЬ в периоде)
-    const arrivedAnimalIds = new Set<number>();
-    // Определяем убывших (те, у кого ЕСТЬ посещения в периоде, но НЕТ после периода)
-    const goneAnimalIds = new Set<number>();
-
-    for (const [animalId, data] of visitsByAnimal.entries()) {
-      const hasVisitInPeriod = allVisits.some(visit => 
-        visit.animalId === animalId && 
-        visit.dateTimeOfVisitLocation >= startDate && 
-        visit.dateTimeOfVisitLocation <= endDate
-      );
-      
-      // Прибывшие: есть посещение в периоде, но нет до периода
-      if (hasVisitInPeriod && !data.hasBefore) {
-        arrivedAnimalIds.add(animalId);
-      }
-      // Убывшие: есть посещение в периоде, но нет после периода
-      if (hasVisitInPeriod && !data.hasAfter) {
-        goneAnimalIds.add(animalId);
-      }
-    }
+    let totalAnimalsArrived = 0;
+    let totalAnimalsGone = 0;
 
     // Группируем по типам животных
-    const analyticsByType = new Map<number, { animalType: string; quantityAnimals: Set<number>; animalsArrived: Set<number>; animalsGone: Set<number> }>();
+    const analyticsByType = new Map<number, {
+      animalType: string;
+      quantityAnimals: Set<number>;
+      animalsArrived: number;
+      animalsGone: number;
+    }>();
 
     for (const [animalId, data] of visitsByAnimal.entries()) {
-      for (const type of data.types) {
-        const stats = analyticsByType.get(type.id) ?? {
-          animalType: type.type,
-          quantityAnimals: new Set<number>(),
-          animalsArrived: new Set<number>(),
-          animalsGone: new Set<number>(),
-        };
+      if (data.hasAnyVisitInPeriod) {
+        totalQuantityAnimals.add(animalId);
+        // Для каждого животного в периоде считается один вход и один выход
+        totalAnimalsArrived += 1;
+        totalAnimalsGone += 1;
 
-        stats.quantityAnimals.add(animalId);
-        
-        if (arrivedAnimalIds.has(animalId)) {
-          stats.animalsArrived.add(animalId);
-        }
-        
-        if (goneAnimalIds.has(animalId)) {
-          stats.animalsGone.add(animalId);
-        }
+        for (const type of data.types) {
+          const typeStats = analyticsByType.get(type.id) ?? {
+            animalType: type.type,
+            quantityAnimals: new Set<number>(),
+            animalsArrived: 0,
+            animalsGone: 0,
+          };
 
-        analyticsByType.set(type.id, stats);
+          typeStats.quantityAnimals.add(animalId);
+          typeStats.animalsArrived += 1;
+          typeStats.animalsGone += 1;
+
+          analyticsByType.set(type.id, typeStats);
+        }
       }
     }
 
@@ -226,14 +208,14 @@ export class AreaRepository {
       animalType: stats.animalType,
       animalTypeId,
       quantityAnimals: stats.quantityAnimals.size,
-      animalsArrived: stats.animalsArrived.size,
-      animalsGone: stats.animalsGone.size,
+      animalsArrived: stats.animalsArrived,
+      animalsGone: stats.animalsGone,
     }));
 
     return {
       totalQuantityAnimals: totalQuantityAnimals.size,
-      totalAnimalsArrived: arrivedAnimalIds.size,
-      totalAnimalsGone: goneAnimalIds.size,
+      totalAnimalsArrived,
+      totalAnimalsGone,
       animalsAnalytics: animalsAnalytics.sort((left, right) => left.animalTypeId - right.animalTypeId),
     };
   }

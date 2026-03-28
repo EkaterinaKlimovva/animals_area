@@ -48,29 +48,29 @@ export class LocationService {
     return this.locationRepository.findByCoordinates(latitude, longitude);
   }
 
-  async createLocation(data: { latitude: number; longitude: number }): Promise<LocationPoint> {
-    // Convert to Decimal with full precision
-    const roundedLatitude = parseFloat(data.latitude.toString());
-    const roundedLongitude = parseFloat(data.longitude.toString());
+  async createLocation(data: { latitude: string; longitude: string }): Promise<LocationPoint> {
+    // Parse for validation
+    const lat = parseFloat(data.latitude);
+    const lng = parseFloat(data.longitude);
 
-    await this.validateCoordinates(roundedLatitude, roundedLongitude);
+    await this.validateCoordinates(lat, lng);
 
-    const existing = await this.locationRepository.findByCoordinates(roundedLatitude, roundedLongitude);
+    const existing = await this.locationRepository.findByCoordinates(lat, lng);
     if (existing) {
       throw new ConflictError('Location with same coordinates already exists');
     }
 
-    const areaId = await this.findAreaForLocation(roundedLatitude, roundedLongitude);
+    const areaId = await this.findAreaForLocation(lat, lng);
     if (areaId === null) {
       return this.locationRepository.create({
-        latitude: roundedLatitude,
-        longitude: roundedLongitude,
+        latitude: data.latitude,
+        longitude: data.longitude,
       });
     }
 
     return this.locationRepository.create({
-      latitude: roundedLatitude,
-      longitude: roundedLongitude,
+      latitude: data.latitude,
+      longitude: data.longitude,
       areaId,
     });
   }
@@ -79,11 +79,7 @@ export class LocationService {
     return this.locationRepository.findById(id);
   }
 
-  async getAllLocations(): Promise<LocationPoint[]> {
-    return this.locationRepository.findAll();
-  }
-
-  async updateLocation(id: number, data: Partial<{ latitude: number; longitude: number }>): Promise<LocationPoint | null> {
+  async updateLocation(id: number, data: Partial<{ latitude: string; longitude: string }>): Promise<LocationPoint | null> {
     if (data.latitude !== undefined || data.longitude !== undefined) {
       const location = await this.locationRepository.findById(id);
       if (!location) return null;
@@ -93,8 +89,9 @@ export class LocationService {
         throw new BadRequestError('Location is used by animals');
       }
 
-      const newLat = data.latitude !== undefined ? data.latitude : parseFloat(location.latitude.toString());
-      const newLng = data.longitude !== undefined ? data.longitude : parseFloat(location.longitude.toString());
+      // Parse for validation
+      const newLat = data.latitude !== undefined ? parseFloat(data.latitude) : parseFloat(location.latitude.toString());
+      const newLng = data.longitude !== undefined ? parseFloat(data.longitude) : parseFloat(location.longitude.toString());
 
       await this.validateCoordinates(newLat, newLng);
 
@@ -104,18 +101,12 @@ export class LocationService {
       }
 
       const areaId = await this.findAreaForLocation(newLat, newLng);
-      if (areaId === null) {
-        return this.locationRepository.update(id, {
-          latitude: newLat,
-          longitude: newLng,
-        });
-      }
+      const updateData: Partial<{ latitude: string; longitude: string; areaId: number | null }> = {};
+      if (data.latitude !== undefined) updateData.latitude = data.latitude;
+      if (data.longitude !== undefined) updateData.longitude = data.longitude;
+      updateData.areaId = areaId;
 
-      return this.locationRepository.update(id, {
-        latitude: newLat,
-        longitude: newLng,
-        areaId,
-      });
+      return this.locationRepository.update(id, updateData);
     }
 
     return this.locationRepository.update(id, data);
