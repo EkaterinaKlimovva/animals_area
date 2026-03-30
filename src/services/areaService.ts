@@ -1,7 +1,7 @@
 import { Area } from '@prisma/client';
 import { AreaRepository, AreaAnalytics } from '../repositories/areaRepository';
-import { BadRequestError, ConflictError, NotFoundError } from '../errors/httpErrors';
-import { arePolygonsEquivalent, AreaPoint, validateAreaPoints, polygonsOverlap } from '../utils/areaGeometry';
+import { BadRequestError, NotFoundError } from '../errors/httpErrors';
+import { AreaPoint, validateAreaPoints } from '../utils/areaGeometry';
 
 export class AreaService {
   private areaRepository: AreaRepository;
@@ -10,53 +10,31 @@ export class AreaService {
     this.areaRepository = new AreaRepository();
   }
 
-  private async validateAreaForSave(areaPoints: AreaPoint[], currentAreaId?: number): Promise<void> {
-    validateAreaPoints(areaPoints);
+  private isPointOnSegment(point: AreaPoint, a: AreaPoint, b: AreaPoint): boolean {
+    const cross = (point.latitude - a.latitude) * (b.longitude - a.longitude)
+      - (point.longitude - a.longitude) * (b.latitude - a.latitude);
 
-    // Temporarily disable existing area checks for testing
-    /*
-    const existingAreas = await this.areaRepository.findAll();
-    for (const area of existingAreas) {
-      if (currentAreaId && area.id === currentAreaId) {
-        continue;
-      }
+    if (Math.abs(cross) > 1e-9) {
+      return false;
+    }
 
-      const existingPoints = area.areaPoints as unknown as AreaPoint[];
-      
-      // Check for equivalent polygons (same points in any order)
-      if (arePolygonsEquivalent(areaPoints, existingPoints)) {
-        throw new BadRequestError('Area with same points already exists');
-      }
-      
-      // Check for overlapping polygons (intersection or containment)
-      if (polygonsOverlap(areaPoints, existingPoints)) {
-        throw new BadRequestError('Area borders intersect with existing area borders');
-      }
-      
-      // Check if new area is inside existing area
-      if (this.isPolygonInsidePolygon(areaPoints, existingPoints)) {
-        throw new BadRequestError('Area borders are inside existing area borders');
-      }
-      
-      // Check if existing area is inside new area
-      if (this.isPolygonInsidePolygon(existingPoints, areaPoints)) {
-        throw new BadRequestError('Existing area borders are inside new area borders');
-      }
-      
-      // Check if new area consists of partial points from existing area and is on its area
-      if (this.hasPartialPointsOverlap(areaPoints, existingPoints)) {
-        throw new BadRequestError('Area consists of partial points from existing area and is on its area');
+    const withinLat = point.latitude >= Math.min(a.latitude, b.latitude) - 1e-9
+      && point.latitude <= Math.max(a.latitude, b.latitude) + 1e-9;
+    const withinLon = point.longitude >= Math.min(a.longitude, b.longitude) - 1e-9
+      && point.longitude <= Math.max(a.longitude, b.longitude) + 1e-9;
+
+    return withinLat && withinLon;
+  }
+
+  private isPointStrictlyInsidePolygon(point: AreaPoint, polygon: AreaPoint[]): boolean {
+    for (let i = 0; i < polygon.length; i += 1) {
+      const a = polygon[i];
+      const b = polygon[(i + 1) % polygon.length];
+      if (this.isPointOnSegment(point, a, b)) {
+        return false;
       }
     }
-    */
-  }
 
-  private isPolygonInsidePolygon(inner: AreaPoint[], outer: AreaPoint[]): boolean {
-    // Check if all points of inner polygon are inside outer polygon
-    return inner.every(point => this.isPointInsidePolygon(point, outer));
-  }
-
-  private isPointInsidePolygon(point: AreaPoint, polygon: AreaPoint[]): boolean {
     let inside = false;
     for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
       const xi = polygon[i].longitude;
@@ -65,41 +43,52 @@ export class AreaService {
       const yj = polygon[j].latitude;
 
       const intersect = ((yi > point.latitude) !== (yj > point.latitude))
-        && point.longitude < ((xj - xi) * (point.latitude - yi)) / ((yj - yi) || 0.0001) + xi;
+        && (point.longitude < ((xj - xi) * (point.latitude - yi)) / ((yj - yi) || 1e-12) + xi);
 
-      if (intersect) inside = !inside;
+      if (intersect) {
+        inside = !inside;
+      }
     }
+
     return inside;
   }
 
-  private hasPartialPointsOverlap(newPoints: AreaPoint[], existingPoints: AreaPoint[]): boolean {
-    // Check if new area has some points from existing area (but not all)
-    const newPointStrings = new Set(newPoints.map(p => `${p.latitude}:${p.longitude}`));
-    const existingPointStrings = new Set(existingPoints.map(p => `${p.latitude}:${p.longitude}`));
-    
-    let commonPoints = 0;
-    for (const pointStr of newPointStrings) {
-      if (existingPointStrings.has(pointStr)) {
-        commonPoints++;
+  private haveStrictAreaOverlap(left: AreaPoint[], right: AreaPoint[]): boolean {
+    return left.some((p) => this.isPointStrictlyInsidePolygon(p, right))
+      || right.some((p) => this.isPointStrictlyInsidePolygon(p, left));
+  }
+
+  private async validateAreaForSave(areaPoints: AreaPoint[], currentAreaId?: number): Promise<void> {
+    validateAreaPoints(areaPoints);
+
+    const existingAreas = await this.areaRepository.findAll();
+    for (const area of existingAreas) {
+      if (currentAreaId !== undefined && area.id === currentAreaId) {
+        continue;
+      }
+
+      const existingPoints = (area.areaPoints as unknown as AreaPoint[]).map((p) => ({
+        latitude: Number(p.latitude),
+        longitude: Number(p.longitude),
+      }));
+
+      if (this.haveStrictAreaOverlap(areaPoints, existingPoints)) {
+        throw new BadRequestError('Area overlaps with existing area');
       }
     }
-    
-    // If there are some common points but not all, and polygons overlap
-    return commonPoints > 0 && commonPoints < newPoints.length && polygonsOverlap(newPoints, existingPoints);
   }
 
   async createArea(data: { name: string; areaPoints: AreaPoint[] }): Promise<Area> {
     if (!data.name?.trim()) {
       throw new BadRequestError('Area name is required');
     }
-
-    const existingAreas = await this.areaRepository.findAll();
     
-    if (existingAreas.some((area) => area.name === data.name)) {
-      throw new ConflictError('Area with same name already exists');
+    if (!data.areaPoints || data.areaPoints.length < 3) {
+      throw new BadRequestError('Area must have at least 3 points');
     }
 
     await this.validateAreaForSave(data.areaPoints);
+
     return this.areaRepository.create(data);
   }
 
@@ -126,11 +115,6 @@ export class AreaService {
 
     if (!data.name.trim()) {
       throw new BadRequestError('Area name is required');
-    }
-
-    const allAreas = await this.areaRepository.findAll();
-    if (allAreas.some((area) => area.id !== id && area.name === data.name)) {
-      throw new ConflictError('Area with same name already exists');
     }
 
     await this.validateAreaForSave(data.areaPoints, id);

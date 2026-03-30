@@ -53,28 +53,32 @@ export class GeoHashController {
   private encodeGeohash(coordinates: Coordinates, precision: number): string {
     const { latitude, longitude } = coordinates;
     const { BASE32 } = GEOHASH;
-    let geohash = '';
     
+    // Initialize boundaries
     let latMin = -90, latMax = 90;
     let lngMin = -180, lngMax = 180;
-    let even = true; // 0 = longitude, 1 = latitude
     
+    let geohash = '';
     let bit = 0;
-    let ch = 0;
+    let charIndex = 0;
+    let even = true; // Start with longitude (false), then alternate with latitude (true)
     
+    // Build geohash until we reach desired precision
     while (geohash.length < precision) {
       if (even) {
+        // Process longitude
         const mid = (lngMin + lngMax) / 2;
         if (longitude >= mid) {
-          ch |= (1 << (4 - bit));
+          charIndex |= (1 << (4 - bit));
           lngMin = mid;
         } else {
           lngMax = mid;
         }
       } else {
+        // Process latitude
         const mid = (latMin + latMax) / 2;
         if (latitude >= mid) {
-          ch |= (1 << (4 - bit));
+          charIndex |= (1 << (4 - bit));
           latMin = mid;
         } else {
           latMax = mid;
@@ -86,9 +90,9 @@ export class GeoHashController {
       if (bit < 4) {
         bit++;
       } else {
-        geohash += GEOHASH.BASE32[ch];
+        geohash += BASE32[charIndex];
         bit = 0;
-        ch = 0;
+        charIndex = 0;
       }
     }
     

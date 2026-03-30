@@ -2,6 +2,8 @@ import { Area, Prisma } from '@prisma/client';
 import prisma from '../../config/database';
 import { AreaPoint } from '../utils/areaGeometry';
 import { BadRequestError, NotFoundError } from '../errors/httpErrors';
+import { point as turfPoint, polygon as turfPolygon } from '@turf/helpers';
+import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
 
 export interface AreaAnalytics {
   totalQuantityAnimals: number;
@@ -84,139 +86,162 @@ export class AreaRepository {
       throw new NotFoundError('Area not found');
     }
 
-    // Получаем уникальные animalIds, которые посещали зону в указанный период
-    const animalIdsInPeriod = await prisma.animalVisitedLocation.findMany({
+    const areaPoints = area.areaPoints as unknown as AreaPoint[];
+    const polygon = turfPolygon([[
+      ...areaPoints.map((p) => [Number(p.longitude), Number(p.latitude)]),
+      [Number(areaPoints[0].longitude), Number(areaPoints[0].latitude)],
+    ]]);
+
+    const isInsideArea = (latitude: number, longitude: number): boolean => {
+      return booleanPointInPolygon(turfPoint([longitude, latitude]), polygon, { ignoreBoundary: false });
+    };
+
+    const animals = await prisma.animal.findMany({
       where: {
-        areaId: areaId,
-        dateTimeOfVisitLocation: {
-          gte: startDate,
-          lte: endDate,
-        },
+        chippingDateTime: { lte: endDate },
       },
       select: {
-        animalId: true,
-      },
-      distinct: ['animalId'],
-    });
-
-    const animalIds = animalIdsInPeriod.map(v => v.animalId);
-
-    if (animalIds.length === 0) {
-      return {
-        totalQuantityAnimals: 0,
-        totalAnimalsArrived: 0,
-        totalAnimalsGone: 0,
-        animalsAnalytics: [],
-      };
-    }
-
-    // Получаем все посещения этих животных в данной зоне (всех времен)
-    const allVisits = await prisma.animalVisitedLocation.findMany({
-      where: {
-        areaId: areaId,
-        animalId: { in: animalIds },
-      },
-      select: {
-        animalId: true,
-        dateTimeOfVisitLocation: true,
-        animal: {
+        id: true,
+        chippingDateTime: true,
+        chippingLocation: {
           select: {
-            types: {
+            latitude: true,
+            longitude: true,
+          },
+        },
+        types: {
+          select: {
+            animalType: {
               select: {
-                animalType: {
-                  select: {
-                    id: true,
-                    type: true,
-                  },
-                },
+                id: true,
+                type: true,
+              },
+            },
+          },
+        },
+        visitedLocations: {
+          where: {
+            dateTimeOfVisitLocation: { lte: endDate },
+          },
+          orderBy: {
+            dateTimeOfVisitLocation: 'asc',
+          },
+          select: {
+            dateTimeOfVisitLocation: true,
+            locationPoint: {
+              select: {
+                latitude: true,
+                longitude: true,
               },
             },
           },
         },
       },
       orderBy: {
-        dateTimeOfVisitLocation: 'asc',
+        id: 'asc',
       },
     });
 
-    // Создаем дату окончания периода включительно
-    const endDateInclusive = new Date(endDate);
-    endDateInclusive.setHours(23, 59, 59, 999);
-
-    // Группируем посещения по животным
-    const visitsByAnimal = new Map<number, {
-      types: { id: number; type: string }[];
-      visitsInPeriod: Date[];
-      hasAnyVisitInPeriod: boolean;
-    }>();
-
-    for (const visit of allVisits) {
-      const animalId = visit.animalId;
-      const types = visit.animal.types.map(t => ({ id: t.animalType.id, type: t.animalType.type }));
-
-      if (!visitsByAnimal.has(animalId)) {
-        visitsByAnimal.set(animalId, { types, visitsInPeriod: [], hasAnyVisitInPeriod: false });
-      }
-
-      const data = visitsByAnimal.get(animalId)!;
-      const visitTime = visit.dateTimeOfVisitLocation;
-
-      if (visitTime >= startDate && visitTime <= endDateInclusive) {
-        data.visitsInPeriod.push(visitTime);
-        data.hasAnyVisitInPeriod = true;
-      }
-    }
-
-    // Подсчитываем итоговые значения
-    const totalQuantityAnimals = new Set<number>();
+    let totalQuantityAnimals = 0;
     let totalAnimalsArrived = 0;
     let totalAnimalsGone = 0;
 
-    // Группируем по типам животных
     const analyticsByType = new Map<number, {
       animalType: string;
-      quantityAnimals: Set<number>;
+      quantityAnimals: number;
       animalsArrived: number;
       animalsGone: number;
     }>();
 
-    for (const [animalId, data] of visitsByAnimal.entries()) {
-      if (data.hasAnyVisitInPeriod) {
-        totalQuantityAnimals.add(animalId);
-        // Для каждого животного в периоде считается один вход и один выход
-        totalAnimalsArrived += 1;
-        totalAnimalsGone += 1;
+    for (const animal of animals) {
+      const timeline: { time: Date; inside: boolean }[] = [];
 
-        for (const type of data.types) {
-          const typeStats = analyticsByType.get(type.id) ?? {
-            animalType: type.type,
-            quantityAnimals: new Set<number>(),
-            animalsArrived: 0,
-            animalsGone: 0,
-          };
+      const chipLat = Number(animal.chippingLocation.latitude);
+      const chipLon = Number(animal.chippingLocation.longitude);
+      timeline.push({
+        time: animal.chippingDateTime,
+        inside: isInsideArea(chipLat, chipLon),
+      });
 
-          typeStats.quantityAnimals.add(animalId);
-          typeStats.animalsArrived += 1;
-          typeStats.animalsGone += 1;
+      for (const visit of animal.visitedLocations) {
+        timeline.push({
+          time: visit.dateTimeOfVisitLocation,
+          inside: isInsideArea(Number(visit.locationPoint.latitude), Number(visit.locationPoint.longitude)),
+        });
+      }
 
-          analyticsByType.set(type.id, typeStats);
+      timeline.sort((a, b) => a.time.getTime() - b.time.getTime());
+
+      let currentInside = timeline[0].inside;
+      let arrived = false;
+      let gone = false;
+
+      for (let i = 1; i < timeline.length; i += 1) {
+        const prevInside = currentInside;
+        const nextInside = timeline[i].inside;
+        const eventTime = timeline[i].time;
+
+        if (eventTime >= startDate && eventTime <= endDate) {
+          if (!prevInside && nextInside) {
+            arrived = true;
+          }
+          if (prevInside && !nextInside) {
+            gone = true;
+          }
         }
+
+        currentInside = nextInside;
+      }
+
+      if (currentInside) {
+        totalQuantityAnimals++;
+      }
+      if (arrived) {
+        totalAnimalsArrived++;
+      }
+      if (gone) {
+        totalAnimalsGone++;
+      }
+
+      for (const relation of animal.types) {
+        const type = relation.animalType;
+        const stats = analyticsByType.get(type.id) ?? {
+          animalType: type.type,
+          quantityAnimals: 0,
+          animalsArrived: 0,
+          animalsGone: 0,
+        };
+
+        if (currentInside) {
+          stats.quantityAnimals++;
+        }
+        if (arrived) {
+          stats.animalsArrived++;
+        }
+        if (gone) {
+          stats.animalsGone++;
+        }
+
+        analyticsByType.set(type.id, stats);
       }
     }
 
-    const animalsAnalytics = [...analyticsByType.entries()].map(([animalTypeId, stats]) => ({
-      animalType: stats.animalType,
-      animalTypeId,
-      quantityAnimals: stats.quantityAnimals.size,
-      animalsArrived: stats.animalsArrived,
-      animalsGone: stats.animalsGone,
-    }));
+    const animalsAnalytics = [...analyticsByType.entries()]
+      .map(([animalTypeId, stats]) => ({
+        animalType: stats.animalType,
+        animalTypeId,
+        quantityAnimals: stats.quantityAnimals,
+        animalsArrived: stats.animalsArrived,
+        animalsGone: stats.animalsGone,
+      }))
+      .filter((stats) => stats.quantityAnimals > 0 || stats.animalsArrived > 0 || stats.animalsGone > 0)
+      .sort((left, right) => left.animalTypeId - right.animalTypeId);
 
     return {
-      totalQuantityAnimals: totalQuantityAnimals.size,
+      totalQuantityAnimals,
       totalAnimalsArrived,
       totalAnimalsGone,
-      animalsAnalytics: animalsAnalytics.sort((left, right) => left.animalTypeId - right.animalTypeId),
+      animalsAnalytics,
     };
   }
 }

@@ -18,7 +18,7 @@ export class LocationRepository {
     return prisma.locationPoint.findMany();
   }
 
-  async findByCoordinates(latitude: number, longitude: number): Promise<LocationPoint | null> {
+  async findByCoordinates(latitude: string, longitude: string): Promise<LocationPoint | null> {
     return prisma.locationPoint.findFirst({
       where: { latitude, longitude },
     });

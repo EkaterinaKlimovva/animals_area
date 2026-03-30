@@ -1,6 +1,6 @@
 export interface AreaPointDto {
-  latitude: number;
-  longitude: number;
+  latitude: string;
+  longitude: string;
 }
 
 export interface CreateAreaRequestDto {

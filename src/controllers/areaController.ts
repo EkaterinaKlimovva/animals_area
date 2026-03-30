@@ -29,8 +29,9 @@ export class AreaController {
   // POST /areas
   async createArea(req: Request, res: Response) {
     const { name, areaPoints } = req.body as CreateAreaRequestDto;
-    
-    const area = await this.areaService.createArea({ name, areaPoints });
+
+    const points = areaPoints.map(p => ({ latitude: Number(p.latitude), longitude: Number(p.longitude) }));
+    const area = await this.areaService.createArea({ name, areaPoints: points });
 
     res.status(201).json(toAreaResponse(area));
   }
@@ -43,7 +44,8 @@ export class AreaController {
     }
 
     const { name, areaPoints } = req.body as UpdateAreaRequestDto;
-    const area = await this.areaService.updateArea(id, { name, areaPoints });
+    const points = areaPoints.map(p => ({ latitude: Number(p.latitude), longitude: Number(p.longitude) }));
+    const area = await this.areaService.updateArea(id, { name, areaPoints: points });
     res.status(200).json(toAreaResponse(area!));
   }
 

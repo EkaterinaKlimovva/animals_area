@@ -45,7 +45,7 @@ export class LocationService {
 
   async findByCoordinates(latitude: number, longitude: number): Promise<LocationPoint | null> {
     await this.validateCoordinates(latitude, longitude);
-    return this.locationRepository.findByCoordinates(latitude, longitude);
+    return this.locationRepository.findByCoordinates(latitude.toString(), longitude.toString());
   }
 
   async createLocation(data: { latitude: string; longitude: string }): Promise<LocationPoint> {
@@ -55,22 +55,25 @@ export class LocationService {
 
     await this.validateCoordinates(lat, lng);
 
-    const existing = await this.locationRepository.findByCoordinates(lat, lng);
+    const existing = await this.locationRepository.findByCoordinates(lat.toString(), lng.toString());
     if (existing) {
       throw new ConflictError('Location with same coordinates already exists');
     }
 
     const areaId = await this.findAreaForLocation(lat, lng);
+    const normalizedLatitude = lat.toString();
+    const normalizedLongitude = lng.toString();
+
     if (areaId === null) {
       return this.locationRepository.create({
-        latitude: data.latitude,
-        longitude: data.longitude,
+        latitude: normalizedLatitude,
+        longitude: normalizedLongitude,
       });
     }
 
     return this.locationRepository.create({
-      latitude: data.latitude,
-      longitude: data.longitude,
+      latitude: normalizedLatitude,
+      longitude: normalizedLongitude,
       areaId,
     });
   }
@@ -95,15 +98,15 @@ export class LocationService {
 
       await this.validateCoordinates(newLat, newLng);
 
-      const duplicate = await this.locationRepository.findByCoordinates(newLat, newLng);
+      const duplicate = await this.locationRepository.findByCoordinates(newLat.toString(), newLng.toString());
       if (duplicate && duplicate.id !== id) {
         throw new ConflictError('Location with same coordinates already exists');
       }
 
       const areaId = await this.findAreaForLocation(newLat, newLng);
       const updateData: Partial<{ latitude: string; longitude: string; areaId: number | null }> = {};
-      if (data.latitude !== undefined) updateData.latitude = data.latitude;
-      if (data.longitude !== undefined) updateData.longitude = data.longitude;
+      if (data.latitude !== undefined) updateData.latitude = newLat.toString();
+      if (data.longitude !== undefined) updateData.longitude = newLng.toString();
       updateData.areaId = areaId;
 
       return this.locationRepository.update(id, updateData);

@@ -65,6 +65,7 @@ const pointInPolygon = (point: AreaPoint, polygon: AreaPoint[]) => {
 };
 
 export const validateAreaPoints = (areaPoints: AreaPoint[]): void => {
+
   if (!Array.isArray(areaPoints) || areaPoints.length < AREA_VALIDATION.MIN_POINTS) {
     throw new BadRequestError(ERROR_MESSAGES.AREA_MIN_POINTS);
   }
@@ -85,10 +86,15 @@ export const validateAreaPoints = (areaPoints: AreaPoint[]): void => {
 
   // Check for collinear points
   if (areaPoints.length >= 3) {
-    const base = areaPoints[0];
-    const allCollinear = areaPoints.slice(2).every((point) => orientation(base, areaPoints[1], point) === 0);
-    if (allCollinear) {
-      throw new BadRequestError(ERROR_MESSAGES.AREA_COLLINEAR);
+    const isCollinear = (a: AreaPoint, b: AreaPoint, c: AreaPoint) => orientation(a, b, c) === 0;
+    
+    for (let i = 0; i < areaPoints.length; i++) {
+      const p1 = areaPoints[i];
+      const p2 = areaPoints[(i + 1) % areaPoints.length];
+      const p3 = areaPoints[(i + 2) % areaPoints.length];
+      if (isCollinear(p1, p2, p3)) {
+        throw new BadRequestError(ERROR_MESSAGES.AREA_COLLINEAR);
+      }
     }
   }
 
@@ -125,11 +131,7 @@ export const validateAreaPoints = (areaPoints: AreaPoint[]): void => {
   const crossesAntimeridian = areaPoints.some((point, i) => {
     const nextPoint = areaPoints[(i + 1) % areaPoints.length];
     const lonDiff = Math.abs(point.longitude - nextPoint.longitude);
-    // Only consider it crossing antimeridian if the difference is > 180 degrees
-    // and the points are on opposite sides of the antimeridian
-    return lonDiff > 180 && 
-           ((point.longitude >= 0 && nextPoint.longitude < 0) || 
-            (point.longitude < 0 && nextPoint.longitude >= 0));
+    return lonDiff > 180;
   });
   if (crossesAntimeridian) {
     throw new BadRequestError(ERROR_MESSAGES.AREA_ANTIMERIDIAN);
@@ -145,22 +147,28 @@ export const validateAreaPoints = (areaPoints: AreaPoint[]): void => {
     throw new BadRequestError(ERROR_MESSAGES.AREA_TOO_SMALL);
   }
 
-  // Special handling for polygons that cross the antimeridian
-  const isAntimeridianPolygon = doesPolygonCrossAntimeridian(areaPoints);
-  
-  // Skip all self-intersection checks for now
-  return;
-};
+  // Check for self-intersecting polygon
+  for (let i = 0; i < areaPoints.length; i += 1) {
+    const a1 = areaPoints[i];
+    const a2 = areaPoints[(i + 1) % areaPoints.length];
 
-const doesPolygonCrossAntimeridian = (areaPoints: AreaPoint[]): boolean => {
-  // For testing: always return true to skip self-intersection check
-  return true;
-};
+    for (let j = i + 1; j < areaPoints.length; j += 1) {
+      const b1 = areaPoints[j];
+      const b2 = areaPoints[(j + 1) % areaPoints.length];
 
-const validateAntimeridianPolygon = (areaPoints: AreaPoint[]): void => {
-  // For antimeridian polygons, we'll allow them for now
-  // The test case with coordinates crossing the antimeridian should be valid
-  return; // Allow all antimeridian polygons for testing
+      const adjacent = i === j
+        || (i + 1) % areaPoints.length === j
+        || i === (j + 1) % areaPoints.length;
+
+      if (adjacent) {
+        continue;
+      }
+
+      if (segmentsIntersect(a1, a2, b1, b2)) {
+        throw new BadRequestError(ERROR_MESSAGES.AREA_SELF_INTERSECT);
+      }
+    }
+  }
 };
 
 export const arePolygonsEquivalent = (left: AreaPoint[], right: AreaPoint[]) => {

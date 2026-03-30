@@ -1,13 +1,13 @@
 import { z } from 'zod';
-import { positiveIntStringSchema } from './commonSchemas';
+import { positiveIntStringSchema, latitudeSchema, longitudeSchema } from './commonSchemas';
 
 export const locationIdParamsSchema = z.object({
   locationId: positiveIntStringSchema,
 });
 
 export const locationBodySchema = z.object({
-  latitude: z.coerce.number().min(-90).max(90),
-  longitude: z.coerce.number().min(-180).max(180),
+  latitude: latitudeSchema,
+  longitude: longitudeSchema,
 });
 
 export const geohashQuerySchema = z.object({
