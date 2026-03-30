@@ -2,7 +2,12 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { Account, Role } from '@prisma/client';
 import { AccountRepository } from '../repositories/accountRepository';
-import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from '../errors/httpErrors';
+import {
+  BadRequestError,
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+} from '../errors/httpErrors';
 
 export class AccountService {
   private accountRepository: AccountRepository;
@@ -11,12 +16,25 @@ export class AccountService {
     this.accountRepository = new AccountRepository();
   }
 
-  async register(data: { firstName: string; lastName: string; email: string; password: string; role?: Role }): Promise<{ account: Account; token: string }> {
-    if (!data.firstName?.trim() || !data.lastName?.trim() || !data.email?.trim() || !data.password?.trim()) {
+  async register(data: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    password: string;
+    role?: Role;
+  }): Promise<{ account: Account; token: string }> {
+    if (
+      !data.firstName?.trim() ||
+      !data.lastName?.trim() ||
+      !data.email?.trim() ||
+      !data.password?.trim()
+    ) {
       throw new BadRequestError('Invalid registration payload');
     }
 
-    const existingAccount = await this.accountRepository.findByEmail(data.email);
+    const existingAccount = await this.accountRepository.findByEmail(
+      data.email,
+    );
     if (existingAccount) {
       throw new ConflictError('Account with this email already exists');
     }
@@ -36,16 +54,33 @@ export class AccountService {
     return this.accountRepository.findById(id);
   }
 
-  async searchAccounts(query: { firstName?: string; lastName?: string; email?: string; from?: number; size?: number }): Promise<Account[]> {
+  async searchAccounts(query: {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    from?: number;
+    size?: number;
+  }): Promise<Account[]> {
     return this.accountRepository.searchAccounts(query);
   }
 
-  async createAccount(data: { firstName: string; lastName: string; email: string; password: string; role?: Role }, currentUserRole: Role): Promise<Account> {
+  async createAccount(
+    data: {
+      firstName: string;
+      lastName: string;
+      email: string;
+      password: string;
+      role?: Role;
+    },
+    currentUserRole: Role,
+  ): Promise<Account> {
     if (currentUserRole !== Role.ADMIN) {
       throw new ForbiddenError('Only admins can create accounts');
     }
 
-    const existingAccount = await this.accountRepository.findByEmail(data.email);
+    const existingAccount = await this.accountRepository.findByEmail(
+      data.email,
+    );
     if (existingAccount) {
       throw new ConflictError('Account with this email already exists');
     }
@@ -57,7 +92,18 @@ export class AccountService {
     });
   }
 
-  async updateAccount(id: number, data: Partial<{ firstName: string; lastName: string; email: string; password: string; role: Role }>, currentUserId: number, currentUserRole: Role): Promise<Account | null> {
+  async updateAccount(
+    id: number,
+    data: Partial<{
+      firstName: string;
+      lastName: string;
+      email: string;
+      password: string;
+      role: Role;
+    }>,
+    currentUserId: number,
+    currentUserRole: Role,
+  ): Promise<Account | null> {
     if (currentUserRole !== Role.ADMIN && currentUserId !== id) {
       throw new ForbiddenError('You can only update your own account');
     }
@@ -70,7 +116,11 @@ export class AccountService {
       throw new ForbiddenError('Account not found');
     }
 
-    if (currentUserRole !== Role.ADMIN && data.role !== undefined && data.role !== account.role) {
+    if (
+      currentUserRole !== Role.ADMIN &&
+      data.role !== undefined &&
+      data.role !== account.role
+    ) {
       throw new ForbiddenError('Only admin can change role');
     }
 
@@ -88,7 +138,11 @@ export class AccountService {
     return this.accountRepository.update(id, data);
   }
 
-  async deleteAccount(id: number, currentUserId: number, currentUserRole: Role): Promise<boolean> {
+  async deleteAccount(
+    id: number,
+    currentUserId: number,
+    currentUserRole: Role,
+  ): Promise<boolean> {
     if (currentUserRole !== Role.ADMIN && currentUserId !== id) {
       throw new ForbiddenError('You can only delete your own account');
     }
@@ -113,7 +167,7 @@ export class AccountService {
     return jwt.sign(
       { id: account.id, email: account.email, role: account.role },
       process.env.JWT_SECRET!,
-      { expiresIn: '24h' }
+      { expiresIn: '24h' },
     );
   }
 }

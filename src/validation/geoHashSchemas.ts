@@ -15,12 +15,15 @@ export const geoHashQuerySchema = z.object({
     }
     return num;
   }),
-  precision: z.string().optional().transform((val) => {
-    if (!val) return undefined;
-    const num = parseInt(val, 10);
-    if (isNaN(num) || num < 1 || num > 12) {
-      throw new Error('Invalid precision');
-    }
-    return num;
-  }),
+  precision: z
+    .string()
+    .optional()
+    .transform((val) => {
+      if (!val) return undefined;
+      const num = parseInt(val, 10);
+      if (isNaN(num) || num < 1 || num > 12) {
+        throw new Error('Invalid precision');
+      }
+      return num;
+    }),
 });

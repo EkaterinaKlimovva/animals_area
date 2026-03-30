@@ -31,7 +31,9 @@ const defaultAccounts = [
 export async function seedDefaultAccounts() {
   try {
     for (const accountData of defaultAccounts) {
-      const existingAccount = await accountRepository.findByEmail(accountData.email);
+      const existingAccount = await accountRepository.findByEmail(
+        accountData.email,
+      );
       if (!existingAccount) {
         const hashedPassword = await bcrypt.hash(accountData.password, 10);
         await accountRepository.create({

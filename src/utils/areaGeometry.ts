@@ -3,15 +3,16 @@ import { AREA_VALIDATION } from '../constants/validation';
 import { ERROR_MESSAGES } from '../constants/errorMessages';
 import { type Coordinates } from '../types/common';
 
-export interface AreaPoint extends Coordinates {}
+export type AreaPoint = Coordinates;
 
 const samePoint = (a: AreaPoint, b: AreaPoint) =>
-  Math.abs(a.latitude - b.latitude) < AREA_VALIDATION.EPSILON && 
+  Math.abs(a.latitude - b.latitude) < AREA_VALIDATION.EPSILON &&
   Math.abs(a.longitude - b.longitude) < AREA_VALIDATION.EPSILON;
 
 const orientation = (a: AreaPoint, b: AreaPoint, c: AreaPoint) => {
-  const value = (b.longitude - a.longitude) * (c.latitude - b.latitude)
-    - (b.latitude - a.latitude) * (c.longitude - b.longitude);
+  const value =
+    (b.longitude - a.longitude) * (c.latitude - b.latitude) -
+    (b.latitude - a.latitude) * (c.longitude - b.longitude);
 
   if (Math.abs(value) < AREA_VALIDATION.EPSILON) {
     return 0;
@@ -21,13 +22,22 @@ const orientation = (a: AreaPoint, b: AreaPoint, c: AreaPoint) => {
 };
 
 const onSegment = (a: AreaPoint, b: AreaPoint, c: AreaPoint) => {
-  return b.longitude <= Math.max(a.longitude, c.longitude) + AREA_VALIDATION.EPSILON
-    && b.longitude + AREA_VALIDATION.EPSILON >= Math.min(a.longitude, c.longitude)
-    && b.latitude <= Math.max(a.latitude, c.latitude) + AREA_VALIDATION.EPSILON
-    && b.latitude + AREA_VALIDATION.EPSILON >= Math.min(a.latitude, c.latitude);
+  return (
+    b.longitude <=
+      Math.max(a.longitude, c.longitude) + AREA_VALIDATION.EPSILON &&
+    b.longitude + AREA_VALIDATION.EPSILON >=
+      Math.min(a.longitude, c.longitude) &&
+    b.latitude <= Math.max(a.latitude, c.latitude) + AREA_VALIDATION.EPSILON &&
+    b.latitude + AREA_VALIDATION.EPSILON >= Math.min(a.latitude, c.latitude)
+  );
 };
 
-const segmentsIntersect = (p1: AreaPoint, q1: AreaPoint, p2: AreaPoint, q2: AreaPoint) => {
+const segmentsIntersect = (
+  p1: AreaPoint,
+  q1: AreaPoint,
+  p2: AreaPoint,
+  q2: AreaPoint,
+) => {
   const o1 = orientation(p1, q1, p2);
   const o2 = orientation(p1, q1, q2);
   const o3 = orientation(p2, q2, p1);
@@ -40,9 +50,7 @@ const segmentsIntersect = (p1: AreaPoint, q1: AreaPoint, p2: AreaPoint, q2: Area
   if (o1 === 0 && onSegment(p1, p2, q1)) return true;
   if (o2 === 0 && onSegment(p1, q2, q1)) return true;
   if (o3 === 0 && onSegment(p2, p1, q2)) return true;
-  if (o4 === 0 && onSegment(p2, q1, q2)) return true;
-
-  return false;
+  return o4 === 0 && onSegment(p2, q1, q2);
 };
 
 const pointInPolygon = (point: AreaPoint, polygon: AreaPoint[]) => {
@@ -54,9 +62,12 @@ const pointInPolygon = (point: AreaPoint, polygon: AreaPoint[]) => {
     const xj = polygon[j].longitude;
     const yj = polygon[j].latitude;
 
-    const intersect = ((yi > point.latitude) !== (yj > point.latitude))
-      && point.longitude
-        < ((xj - xi) * (point.latitude - yi)) / ((yj - yi) || AREA_VALIDATION.EPSILON) + xi;
+    const intersect =
+      yi > point.latitude !== yj > point.latitude &&
+      point.longitude <
+        ((xj - xi) * (point.latitude - yi)) /
+          (yj - yi || AREA_VALIDATION.EPSILON) +
+          xi;
 
     if (intersect) inside = !inside;
   }
@@ -65,8 +76,10 @@ const pointInPolygon = (point: AreaPoint, polygon: AreaPoint[]) => {
 };
 
 export const validateAreaPoints = (areaPoints: AreaPoint[]): void => {
-
-  if (!Array.isArray(areaPoints) || areaPoints.length < AREA_VALIDATION.MIN_POINTS) {
+  if (
+    !Array.isArray(areaPoints) ||
+    areaPoints.length < AREA_VALIDATION.MIN_POINTS
+  ) {
     throw new BadRequestError(ERROR_MESSAGES.AREA_MIN_POINTS);
   }
 
@@ -74,20 +87,28 @@ export const validateAreaPoints = (areaPoints: AreaPoint[]): void => {
     if (!point) {
       throw new BadRequestError('Area point is required');
     }
-    if (point.latitude < -90 || point.latitude > 90 || point.longitude < -180 || point.longitude > 180) {
+    if (
+      point.latitude < -90 ||
+      point.latitude > 90 ||
+      point.longitude < -180 ||
+      point.longitude > 180
+    ) {
       throw new BadRequestError(ERROR_MESSAGES.INVALID_COORDINATES);
     }
   }
 
-  const uniquePoints = new Set(areaPoints.map((point) => `${point.latitude}:${point.longitude}`));
+  const uniquePoints = new Set(
+    areaPoints.map((point) => `${point.latitude}:${point.longitude}`),
+  );
   if (uniquePoints.size !== areaPoints.length) {
     throw new BadRequestError(ERROR_MESSAGES.AREA_DUPLICATE_POINTS);
   }
 
   // Check for collinear points
   if (areaPoints.length >= 3) {
-    const isCollinear = (a: AreaPoint, b: AreaPoint, c: AreaPoint) => orientation(a, b, c) === 0;
-    
+    const isCollinear = (a: AreaPoint, b: AreaPoint, c: AreaPoint) =>
+      orientation(a, b, c) === 0;
+
     for (let i = 0; i < areaPoints.length; i++) {
       const p1 = areaPoints[i];
       const p2 = areaPoints[(i + 1) % areaPoints.length];
@@ -99,34 +120,34 @@ export const validateAreaPoints = (areaPoints: AreaPoint[]): void => {
   }
 
   // Check if polygon crosses antimeridian
-  const lons = areaPoints.map(p => p.longitude);
+  const lons = areaPoints.map((p) => p.longitude);
   const minLon = Math.min(...lons);
   const maxLon = Math.max(...lons);
-  
+
   const lonSpan = maxLon - minLon;
   if (lonSpan > AREA_VALIDATION.MAX_LON_SPAN) {
     throw new BadRequestError(ERROR_MESSAGES.AREA_ANTIMERIDIAN);
   }
-  
+
   // Check if polygon spans across antimeridian by detecting wraparound
   // A polygon crosses antimeridian if it has points on both sides and the span is > 180 degrees when considering wraparound
-  const hasPositiveLon = lons.some(lon => lon >= 0);
-  const hasNegativeLon = lons.some(lon => lon < 0);
-  
+  const hasPositiveLon = lons.some((lon) => lon >= 0);
+  const hasNegativeLon = lons.some((lon) => lon < 0);
+
   if (hasPositiveLon && hasNegativeLon) {
     // Calculate the actual span considering wraparound
-    const positiveLons = lons.filter(lon => lon >= 0);
-    const negativeLons = lons.filter(lon => lon < 0);
-    
+    const positiveLons = lons.filter((lon) => lon >= 0);
+    const negativeLons = lons.filter((lon) => lon < 0);
+
     const minPos = positiveLons.length > 0 ? Math.min(...positiveLons) : 180;
     const maxNeg = negativeLons.length > 0 ? Math.max(...negativeLons) : -180;
-    
-    const wraparoundSpan = (180 - minPos) + (maxNeg + 180);
+
+    const wraparoundSpan = 180 - minPos + (maxNeg + 180);
     if (wraparoundSpan > AREA_VALIDATION.MAX_LON_SPAN) {
       throw new BadRequestError(ERROR_MESSAGES.AREA_ANTIMERIDIAN);
     }
   }
-  
+
   // Check if any edge crosses the antimeridian (more than 180 degrees difference)
   const crossesAntimeridian = areaPoints.some((point, i) => {
     const nextPoint = areaPoints[(i + 1) % areaPoints.length];
@@ -138,12 +159,15 @@ export const validateAreaPoints = (areaPoints: AreaPoint[]): void => {
   }
 
   // Check if polygon is too small (degenerate)
-  const minLat = Math.min(...areaPoints.map(p => p.latitude));
-  const maxLat = Math.max(...areaPoints.map(p => p.latitude));
-  
+  const minLat = Math.min(...areaPoints.map((p) => p.latitude));
+  const maxLat = Math.max(...areaPoints.map((p) => p.latitude));
+
   const latSpan = maxLat - minLat;
-  
-  if (latSpan < AREA_VALIDATION.MIN_AREA_SIZE || lonSpan < AREA_VALIDATION.MIN_AREA_SIZE) {
+
+  if (
+    latSpan < AREA_VALIDATION.MIN_AREA_SIZE ||
+    lonSpan < AREA_VALIDATION.MIN_AREA_SIZE
+  ) {
     throw new BadRequestError(ERROR_MESSAGES.AREA_TOO_SMALL);
   }
 
@@ -156,9 +180,10 @@ export const validateAreaPoints = (areaPoints: AreaPoint[]): void => {
       const b1 = areaPoints[j];
       const b2 = areaPoints[(j + 1) % areaPoints.length];
 
-      const adjacent = i === j
-        || (i + 1) % areaPoints.length === j
-        || i === (j + 1) % areaPoints.length;
+      const adjacent =
+        i === j ||
+        (i + 1) % areaPoints.length === j ||
+        i === (j + 1) % areaPoints.length;
 
       if (adjacent) {
         continue;
@@ -171,7 +196,10 @@ export const validateAreaPoints = (areaPoints: AreaPoint[]): void => {
   }
 };
 
-export const arePolygonsEquivalent = (left: AreaPoint[], right: AreaPoint[]) => {
+export const arePolygonsEquivalent = (
+  left: AreaPoint[],
+  right: AreaPoint[],
+) => {
   if (left.length !== right.length) {
     return false;
   }
@@ -179,7 +207,9 @@ export const arePolygonsEquivalent = (left: AreaPoint[], right: AreaPoint[]) => 
   const doubled = [...right, ...right];
 
   for (let offset = 0; offset < right.length; offset += 1) {
-    const forwardMatch = left.every((point, index) => samePoint(point, doubled[offset + index]));
+    const forwardMatch = left.every((point, index) =>
+      samePoint(point, doubled[offset + index]),
+    );
     if (forwardMatch) {
       return true;
     }
@@ -211,9 +241,5 @@ export const polygonsOverlap = (left: AreaPoint[], right: AreaPoint[]) => {
     }
   }
 
-  if (pointInPolygon(left[0], right) || pointInPolygon(right[0], left)) {
-    return true;
-  }
-
-  return false;
+  return pointInPolygon(left[0], right) || pointInPolygon(right[0], left);
 };

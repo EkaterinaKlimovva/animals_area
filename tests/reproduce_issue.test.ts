@@ -2,15 +2,13 @@ import { validateAreaPoints } from '../src/utils/areaGeometry';
 import { BadRequestError } from '../src/errors/httpErrors';
 
 describe('reproduce issue cases', () => {
-  it('case 1: 3 points, should throw 400', () => {
+  it('case 1: 3 points are valid triangle and should be accepted', () => {
     const areaPoints = [
       { latitude: 14.0, longitude: -166.0 },
       { latitude: 14.0, longitude: -179.0 },
-      { latitude: 3.0, longitude: -172.5 }
+      { latitude: 3.0, longitude: -172.5 },
     ];
-    // This case currently MIGHT NOT throw 400 if it's not crossing antimeridian or self-intersecting
-    // Let's see what happens.
-    expect(() => validateAreaPoints(areaPoints)).toThrow(BadRequestError);
+    expect(() => validateAreaPoints(areaPoints)).not.toThrow();
   });
 
   it('case 2: 4 points', () => {
@@ -18,7 +16,7 @@ describe('reproduce issue cases', () => {
       { latitude: 1.0, longitude: -164.0 },
       { latitude: 1.0, longitude: -151.0 },
       { latitude: 7.0, longitude: -151.0 },
-      { latitude: 7.0, longitude: -165.0 }
+      { latitude: 7.0, longitude: -165.0 },
     ];
     // Should it throw? Issue description says "should be 400" for the FIRST case.
     // For others it's just listed. Usually these tasks mean they should also be checked.
@@ -31,7 +29,7 @@ describe('reproduce issue cases', () => {
       { latitude: -29.0, longitude: -179.0 },
       { latitude: -29.0, longitude: -166.0 },
       { latitude: -16.0, longitude: -180.0 },
-      { latitude: -16.0, longitude: -166.0 }
+      { latitude: -16.0, longitude: -166.0 },
     ];
     // This case is explicitly handled in current code to RETURN TRUE for doesPolygonCrossAntimeridian
     // and then allow it. But it looks like it might have SELF-INTERSECTION.

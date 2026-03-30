@@ -18,7 +18,10 @@ describe('AccountService', () => {
   });
 
   it('registers a new account', async () => {
-    const findByEmailSpy = jest.spyOn(AccountRepository.prototype, 'findByEmail');
+    const findByEmailSpy = jest.spyOn(
+      AccountRepository.prototype,
+      'findByEmail',
+    );
     const createSpy = jest.spyOn(AccountRepository.prototype, 'create');
     const service = new AccountService();
 
@@ -45,7 +48,10 @@ describe('AccountService', () => {
   });
 
   it('throws conflict if email already exists on register', async () => {
-    const findByEmailSpy = jest.spyOn(AccountRepository.prototype, 'findByEmail');
+    const findByEmailSpy = jest.spyOn(
+      AccountRepository.prototype,
+      'findByEmail',
+    );
     const service = new AccountService();
 
     findByEmailSpy.mockResolvedValue({
@@ -57,23 +63,30 @@ describe('AccountService', () => {
       role: Role.USER,
     } as never);
 
-    await expect(service.register({
-      firstName: 'Ivan',
-      lastName: 'Ivanov',
-      email: 'ivan@test.com',
-      password: 'secret123',
-    })).rejects.toBeInstanceOf(ConflictError);
+    await expect(
+      service.register({
+        firstName: 'Ivan',
+        lastName: 'Ivanov',
+        email: 'ivan@test.com',
+        password: 'secret123',
+      }),
+    ).rejects.toBeInstanceOf(ConflictError);
   });
 
   it('forbids account creation for non-admin', async () => {
     const service = new AccountService();
 
-    await expect(service.createAccount({
-      firstName: 'Ivan',
-      lastName: 'Ivanov',
-      email: 'ivan@test.com',
-      password: 'secret123',
-      role: Role.USER,
-    }, Role.USER)).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(
+      service.createAccount(
+        {
+          firstName: 'Ivan',
+          lastName: 'Ivanov',
+          email: 'ivan@test.com',
+          password: 'secret123',
+          role: Role.USER,
+        },
+        Role.USER,
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenError);
   });
 });

@@ -1,6 +1,10 @@
 import { AnimalType } from '@prisma/client';
 import { AnimalTypeRepository } from '../repositories/animalTypeRepository';
-import { BadRequestError, ConflictError, NotFoundError } from '../errors/httpErrors';
+import {
+  BadRequestError,
+  ConflictError,
+  NotFoundError,
+} from '../errors/httpErrors';
 
 export class AnimalTypeService {
   private animalTypeRepository: AnimalTypeRepository;
@@ -9,9 +13,14 @@ export class AnimalTypeService {
     this.animalTypeRepository = new AnimalTypeRepository();
   }
 
-  private async validateTypeUniqueness(type: string, excludeId?: number): Promise<void> {
+  private async validateTypeUniqueness(
+    type: string,
+    excludeId?: number,
+  ): Promise<void> {
     const existing = await this.animalTypeRepository.findAll();
-    const duplicate = existing.find(t => t.type.toLowerCase() === type.toLowerCase() && t.id !== excludeId);
+    const duplicate = existing.find(
+      (t) => t.type.toLowerCase() === type.toLowerCase() && t.id !== excludeId,
+    );
     if (duplicate) {
       throw new ConflictError('Animal type already exists');
     }
@@ -33,7 +42,10 @@ export class AnimalTypeService {
     return this.animalTypeRepository.findAll();
   }
 
-  async updateAnimalType(id: number, data: Partial<{ type: string }>): Promise<AnimalType | null> {
+  async updateAnimalType(
+    id: number,
+    data: Partial<{ type: string }>,
+  ): Promise<AnimalType | null> {
     if (data.type !== undefined) {
       if (!data.type || data.type.trim().length === 0) {
         throw new BadRequestError('Type is required');

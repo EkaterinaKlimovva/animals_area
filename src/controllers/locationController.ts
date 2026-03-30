@@ -7,6 +7,16 @@ import { GEOHASH } from '../constants/validation';
 import * as ngeohash from 'ngeohash';
 import { createHash } from 'crypto';
 
+type LocationIdParams = { locationId: string | number };
+type LocationSearchQuery = Partial<LocationRequestDto>;
+type GeohashQuery = {
+  lat?: string | number;
+  lng?: string | number;
+  latitude?: string | number;
+  longitude?: string | number;
+  format?: string;
+};
+
 export class LocationController {
   private locationService: LocationService;
 
@@ -16,31 +26,32 @@ export class LocationController {
 
   // GET /locations
   async searchLocations(req: Request, res: Response) {
-    const { latitude, longitude } = req.query;
-    
+    const { latitude, longitude } = req.query as unknown as LocationSearchQuery;
+
     if (latitude === undefined || longitude === undefined) {
       throw new BadRequestError('Latitude and longitude are required');
     }
-    
+
     const lat = parseFloat(String(latitude));
     const lng = parseFloat(String(longitude));
-    
+
     if (isNaN(lat) || isNaN(lng)) {
       throw new BadRequestError('Invalid latitude or longitude');
     }
-    
+
     const location = await this.locationService.findByCoordinates(lat, lng);
     if (!location) {
       throw new NotFoundError('Location not found');
     }
-    
+
     res.status(200).send(location.id.toString());
   }
 
   // GET /locations/{locationId}
   async getLocationById(req: Request, res: Response) {
-    const id = parseInt(req.params.locationId, 10);
-    if (isNaN(id) || id <= 0) {
+    const params = req.params as unknown as LocationIdParams;
+    const id = Number(params.locationId);
+    if (!Number.isInteger(id) || id <= 0) {
       throw new BadRequestError('Invalid location ID');
     }
 
@@ -55,34 +66,41 @@ export class LocationController {
   // POST /locations
   async createLocation(req: Request, res: Response) {
     const { latitude, longitude } = req.body as LocationRequestDto;
-    const lat = parseFloat(latitude);
-    const lng = parseFloat(longitude);
+    const lat = Number(latitude);
+    const lng = Number(longitude);
 
     if (isNaN(lat) || isNaN(lng)) {
       throw new BadRequestError('Invalid latitude or longitude');
     }
 
-    const location = await this.locationService.createLocation({ latitude, longitude });
+    const location = await this.locationService.createLocation({
+      latitude,
+      longitude,
+    });
 
     res.status(201).json(toLocationResponse(location));
   }
 
   // PUT /locations/{locationId}
   async updateLocation(req: Request, res: Response) {
-    const id = parseInt(req.params.locationId, 10);
-    if (isNaN(id) || id <= 0) {
+    const params = req.params as unknown as LocationIdParams;
+    const id = Number(params.locationId);
+    if (!Number.isInteger(id) || id <= 0) {
       throw new BadRequestError('Invalid location ID');
     }
 
     const { latitude, longitude } = req.body as LocationRequestDto;
-    const lat = latitude !== undefined ? parseFloat(latitude) : undefined;
-    const lng = longitude !== undefined ? parseFloat(longitude) : undefined;
+    const lat = Number(latitude);
+    const lng = Number(longitude);
 
-    if ((lat !== undefined && isNaN(lat)) || (lng !== undefined && isNaN(lng))) {
+    if (isNaN(lat) || isNaN(lng)) {
       throw new BadRequestError('Invalid latitude or longitude');
     }
 
-    const location = await this.locationService.updateLocation(id, { latitude, longitude });
+    const location = await this.locationService.updateLocation(id, {
+      latitude,
+      longitude,
+    });
 
     if (!location) {
       throw new NotFoundError('Location not found');
@@ -93,8 +111,9 @@ export class LocationController {
 
   // DELETE /locations/{locationId}
   async deleteLocation(req: Request, res: Response) {
-    const id = parseInt(req.params.locationId, 10);
-    if (isNaN(id) || id <= 0) {
+    const params = req.params as unknown as LocationIdParams;
+    const id = Number(params.locationId);
+    if (!Number.isInteger(id) || id <= 0) {
       throw new BadRequestError('Invalid location ID');
     }
 
@@ -124,37 +143,42 @@ export class LocationController {
 
   // GET /locations/geohash?lat=&lng= or ?latitude=&longitude=
   async getGeohash(req: Request, res: Response) {
-    const latStr = req.query.lat ?? req.query.latitude;
-    const lngStr = req.query.lng ?? req.query.longitude;
-    
+    const query = req.query as unknown as GeohashQuery;
+    const latStr = query.lat ?? query.latitude;
+    const lngStr = query.lng ?? query.longitude;
+
     const latitude = parseFloat(String(latStr));
     const longitude = parseFloat(String(lngStr));
-    
+
     if (isNaN(latitude) || isNaN(longitude)) {
       throw new BadRequestError('Invalid latitude or longitude');
     }
 
     const hash = this.encodeGeohashV1(latitude, longitude);
-    
+
     // Check if base64 encoding is requested
     const acceptHeader = req.headers.accept || '';
-    if (acceptHeader.includes('application/base64') || req.query.format === 'base64') {
+    if (
+      acceptHeader.includes('application/base64') ||
+      query.format === 'base64'
+    ) {
       const base64Geohash = Buffer.from(hash).toString('base64');
       res.status(200).type('text/plain').send(base64Geohash);
       return;
     }
-    
+
     res.status(200).type('text/plain').send(hash);
   }
 
   // GET /locations/geohashv2?lat=&lng= or ?latitude=&longitude=
   async getGeohashV2(req: Request, res: Response) {
-    const latStr = req.query.lat ?? req.query.latitude;
-    const lngStr = req.query.lng ?? req.query.longitude;
-    
+    const query = req.query as unknown as GeohashQuery;
+    const latStr = query.lat ?? query.latitude;
+    const lngStr = query.lng ?? query.longitude;
+
     const latitude = parseFloat(String(latStr));
     const longitude = parseFloat(String(lngStr));
-    
+
     if (isNaN(latitude) || isNaN(longitude)) {
       throw new BadRequestError('Invalid latitude or longitude');
     }
@@ -166,12 +190,13 @@ export class LocationController {
 
   // GET /locations/geohashv3?lat=&lng= or ?latitude=&longitude=
   async getGeohashV3(req: Request, res: Response) {
-    const latStr = req.query.lat ?? req.query.latitude;
-    const lngStr = req.query.lng ?? req.query.longitude;
-    
+    const query = req.query as unknown as GeohashQuery;
+    const latStr = query.lat ?? query.latitude;
+    const lngStr = query.lng ?? query.longitude;
+
     const latitude = parseFloat(String(latStr));
     const longitude = parseFloat(String(lngStr));
-    
+
     if (isNaN(latitude) || isNaN(longitude)) {
       throw new BadRequestError('Invalid latitude or longitude');
     }

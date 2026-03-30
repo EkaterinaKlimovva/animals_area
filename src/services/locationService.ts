@@ -3,7 +3,11 @@ import { LocationRepository } from '../repositories/locationRepository';
 import { AreaRepository } from '../repositories/areaRepository';
 import { point as turfPoint, polygon as turfPolygon } from '@turf/helpers';
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
-import { BadRequestError, ConflictError, NotFoundError } from '../errors/httpErrors';
+import {
+  BadRequestError,
+  ConflictError,
+  NotFoundError,
+} from '../errors/httpErrors';
 
 export class LocationService {
   private locationRepository: LocationRepository;
@@ -14,7 +18,10 @@ export class LocationService {
     this.areaRepository = new AreaRepository();
   }
 
-  private async validateCoordinates(latitude: number, longitude: number): Promise<void> {
+  private async validateCoordinates(
+    latitude: number,
+    longitude: number,
+  ): Promise<void> {
     if (latitude < -90 || latitude > 90) {
       throw new BadRequestError('Latitude must be between -90 and 90');
     }
@@ -23,16 +30,25 @@ export class LocationService {
     }
   }
 
-  private async findAreaForLocation(latitude: number, longitude: number): Promise<number | null> {
+  private async findAreaForLocation(
+    latitude: number,
+    longitude: number,
+  ): Promise<number | null> {
     const areas = await this.areaRepository.findAll();
     const point = turfPoint([longitude, latitude]);
 
     for (const area of areas) {
-      const areaPoints = area.areaPoints as { latitude: number; longitude: number }[];
+      const areaPoints = area.areaPoints as {
+        latitude: number;
+        longitude: number;
+      }[];
       if (areaPoints.length < 3) continue;
 
       const coordinates = [
-        [...areaPoints.map((p) => [p.longitude, p.latitude]), [areaPoints[0].longitude, areaPoints[0].latitude]],
+        [
+          ...areaPoints.map((p) => [p.longitude, p.latitude]),
+          [areaPoints[0].longitude, areaPoints[0].latitude],
+        ],
       ];
       const polygon = turfPolygon(coordinates);
 
@@ -43,19 +59,31 @@ export class LocationService {
     return null;
   }
 
-  async findByCoordinates(latitude: number, longitude: number): Promise<LocationPoint | null> {
+  async findByCoordinates(
+    latitude: number,
+    longitude: number,
+  ): Promise<LocationPoint | null> {
     await this.validateCoordinates(latitude, longitude);
-    return this.locationRepository.findByCoordinates(latitude.toString(), longitude.toString());
+    return this.locationRepository.findByCoordinates(
+      latitude.toString(),
+      longitude.toString(),
+    );
   }
 
-  async createLocation(data: { latitude: string; longitude: string }): Promise<LocationPoint> {
+  async createLocation(data: {
+    latitude: string | number;
+    longitude: string | number;
+  }): Promise<LocationPoint> {
     // Parse for validation
-    const lat = parseFloat(data.latitude);
-    const lng = parseFloat(data.longitude);
+    const lat = Number(data.latitude);
+    const lng = Number(data.longitude);
 
     await this.validateCoordinates(lat, lng);
 
-    const existing = await this.locationRepository.findByCoordinates(lat.toString(), lng.toString());
+    const existing = await this.locationRepository.findByCoordinates(
+      lat.toString(),
+      lng.toString(),
+    );
     if (existing) {
       throw new ConflictError('Location with same coordinates already exists');
     }
@@ -82,7 +110,10 @@ export class LocationService {
     return this.locationRepository.findById(id);
   }
 
-  async updateLocation(id: number, data: Partial<{ latitude: string; longitude: string }>): Promise<LocationPoint | null> {
+  async updateLocation(
+    id: number,
+    data: Partial<{ latitude: string | number; longitude: string | number }>,
+  ): Promise<LocationPoint | null> {
     if (data.latitude !== undefined || data.longitude !== undefined) {
       const location = await this.locationRepository.findById(id);
       if (!location) return null;
@@ -93,26 +124,42 @@ export class LocationService {
       }
 
       // Parse for validation
-      const newLat = data.latitude !== undefined ? parseFloat(data.latitude) : parseFloat(location.latitude.toString());
-      const newLng = data.longitude !== undefined ? parseFloat(data.longitude) : parseFloat(location.longitude.toString());
+      const newLat =
+        data.latitude !== undefined
+          ? Number(data.latitude)
+          : parseFloat(location.latitude.toString());
+      const newLng =
+        data.longitude !== undefined
+          ? Number(data.longitude)
+          : parseFloat(location.longitude.toString());
 
       await this.validateCoordinates(newLat, newLng);
 
-      const duplicate = await this.locationRepository.findByCoordinates(newLat.toString(), newLng.toString());
+      const duplicate = await this.locationRepository.findByCoordinates(
+        newLat.toString(),
+        newLng.toString(),
+      );
       if (duplicate && duplicate.id !== id) {
-        throw new ConflictError('Location with same coordinates already exists');
+        throw new ConflictError(
+          'Location with same coordinates already exists',
+        );
       }
 
       const areaId = await this.findAreaForLocation(newLat, newLng);
-      const updateData: Partial<{ latitude: string; longitude: string; areaId: number | null }> = {};
+      const updateData: Partial<{
+        latitude: string;
+        longitude: string;
+        areaId: number | null;
+      }> = {};
       if (data.latitude !== undefined) updateData.latitude = newLat.toString();
-      if (data.longitude !== undefined) updateData.longitude = newLng.toString();
+      if (data.longitude !== undefined)
+        updateData.longitude = newLng.toString();
       updateData.areaId = areaId;
 
       return this.locationRepository.update(id, updateData);
     }
 
-    return this.locationRepository.update(id, data);
+    return null;
   }
 
   async deleteLocation(id: number): Promise<boolean> {

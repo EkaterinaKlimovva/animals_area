@@ -38,16 +38,21 @@ export class AreaRepository {
     return prisma.area.findMany({ orderBy: { id: 'asc' } });
   }
 
-  async update(id: number, data: Partial<{ name: string; areaPoints: AreaPoint[] }>): Promise<Area | null> {
+  async update(
+    id: number,
+    data: Partial<{ name: string; areaPoints: AreaPoint[] }>,
+  ): Promise<Area | null> {
     try {
-      const updateData: { name?: string; areaPoints?: Prisma.InputJsonValue } = {};
+      const updateData: { name?: string; areaPoints?: Prisma.InputJsonValue } =
+        {};
 
       if (data.name !== undefined) {
         updateData.name = data.name;
       }
 
       if (data.areaPoints !== undefined) {
-        updateData.areaPoints = data.areaPoints as unknown as Prisma.InputJsonValue;
+        updateData.areaPoints =
+          data.areaPoints as unknown as Prisma.InputJsonValue;
       }
 
       return await prisma.area.update({
@@ -70,7 +75,11 @@ export class AreaRepository {
     }
   }
 
-  async getAreaAnalytics(areaId: number, startDate: Date, endDate: Date): Promise<AreaAnalytics> {
+  async getAreaAnalytics(
+    areaId: number,
+    startDate: Date,
+    endDate: Date,
+  ): Promise<AreaAnalytics> {
     if (areaId <= 0) {
       throw new BadRequestError('Invalid area ID');
     }
@@ -87,13 +96,17 @@ export class AreaRepository {
     }
 
     const areaPoints = area.areaPoints as unknown as AreaPoint[];
-    const polygon = turfPolygon([[
-      ...areaPoints.map((p) => [Number(p.longitude), Number(p.latitude)]),
-      [Number(areaPoints[0].longitude), Number(areaPoints[0].latitude)],
-    ]]);
+    const polygon = turfPolygon([
+      [
+        ...areaPoints.map((p) => [Number(p.longitude), Number(p.latitude)]),
+        [Number(areaPoints[0].longitude), Number(areaPoints[0].latitude)],
+      ],
+    ]);
 
     const isInsideArea = (latitude: number, longitude: number): boolean => {
-      return booleanPointInPolygon(turfPoint([longitude, latitude]), polygon, { ignoreBoundary: false });
+      return booleanPointInPolygon(turfPoint([longitude, latitude]), polygon, {
+        ignoreBoundary: false,
+      });
     };
 
     const animals = await prisma.animal.findMany({
@@ -146,12 +159,15 @@ export class AreaRepository {
     let totalAnimalsArrived = 0;
     let totalAnimalsGone = 0;
 
-    const analyticsByType = new Map<number, {
-      animalType: string;
-      quantityAnimals: number;
-      animalsArrived: number;
-      animalsGone: number;
-    }>();
+    const analyticsByType = new Map<
+      number,
+      {
+        animalType: string;
+        quantityAnimals: number;
+        animalsArrived: number;
+        animalsGone: number;
+      }
+    >();
 
     for (const animal of animals) {
       const timeline: { time: Date; inside: boolean }[] = [];
@@ -166,7 +182,10 @@ export class AreaRepository {
       for (const visit of animal.visitedLocations) {
         timeline.push({
           time: visit.dateTimeOfVisitLocation,
-          inside: isInsideArea(Number(visit.locationPoint.latitude), Number(visit.locationPoint.longitude)),
+          inside: isInsideArea(
+            Number(visit.locationPoint.latitude),
+            Number(visit.locationPoint.longitude),
+          ),
         });
       }
 
@@ -234,7 +253,12 @@ export class AreaRepository {
         animalsArrived: stats.animalsArrived,
         animalsGone: stats.animalsGone,
       }))
-      .filter((stats) => stats.quantityAnimals > 0 || stats.animalsArrived > 0 || stats.animalsGone > 0)
+      .filter(
+        (stats) =>
+          stats.quantityAnimals > 0 ||
+          stats.animalsArrived > 0 ||
+          stats.animalsGone > 0,
+      )
       .sort((left, right) => left.animalTypeId - right.animalTypeId);
 
     return {

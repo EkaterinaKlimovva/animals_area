@@ -11,7 +11,7 @@ export interface CreateAccountRequestDto extends RegistrationRequestDto {
   role: Role;
 }
 
-export interface UpdateAccountRequestDto extends CreateAccountRequestDto {}
+export type UpdateAccountRequestDto = CreateAccountRequestDto;
 
 export interface AccountSearchQueryDto {
   firstName?: string;

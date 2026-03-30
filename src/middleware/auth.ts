@@ -6,19 +6,21 @@ import { ForbiddenError, UnauthorizedError } from '../errors/httpErrors';
 import { AccountRepository } from '../repositories/accountRepository';
 
 // Extend Request interface to include user
-declare global {
-  namespace Express {
-    interface Request {
-      user?: {
-        id: number;
-        email: string;
-        role: Role;
-      };
-    }
+declare module 'express-serve-static-core' {
+  interface Request {
+    user?: {
+      id: number;
+      email: string;
+      role: Role;
+    };
   }
 }
 
-export const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
+export const authenticateToken = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   const authHeader = req.headers['authorization'];
   if (!authHeader) {
     return next(new UnauthorizedError('Access token required'));
@@ -51,7 +53,11 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
   return next(new UnauthorizedError('Invalid authorization header'));
 };
 
-export const optionalAuthenticate = (req: Request, res: Response, next: NextFunction) => {
+export const optionalAuthenticate = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   const authHeader = req.headers['authorization'];
 
   if (!authHeader) {
@@ -65,7 +71,11 @@ export const optionalAuthenticate = (req: Request, res: Response, next: NextFunc
   return next();
 };
 
-async function authenticateBasic(authHeader: string, req: Request, next: NextFunction) {
+async function authenticateBasic(
+  authHeader: string,
+  req: Request,
+  next: NextFunction,
+) {
   try {
     const encoded = authHeader.split(' ')[1];
     if (!encoded) {

@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { isoDateSchema, positiveIntStringSchema, trimmedStringSchema, coordinatesSchema } from './commonSchemas';
+import {
+  isoDateSchema,
+  positiveIntStringSchema,
+  trimmedStringSchema,
+  coordinatesSchema,
+} from './commonSchemas';
 
 export const areaPointSchema = coordinatesSchema;
 

@@ -2,7 +2,9 @@ import { AnimalVisitedLocation } from '@prisma/client';
 import { AnimalWithDetails } from '../repositories/animalRepository';
 import { AnimalResponseDto, VisitedLocationResponseDto } from '../types/animal';
 
-export const toAnimalResponse = (animal: AnimalWithDetails): AnimalResponseDto => ({
+export const toAnimalResponse = (
+  animal: AnimalWithDetails,
+): AnimalResponseDto => ({
   id: animal.id,
   animalTypes: animal.types.map((item) => item.animalType.id),
   weight: animal.weight,

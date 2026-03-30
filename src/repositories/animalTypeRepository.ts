@@ -18,7 +18,10 @@ export class AnimalTypeRepository {
     return prisma.animalType.findMany();
   }
 
-  async update(id: number, data: Partial<{ type: string }>): Promise<AnimalType | null> {
+  async update(
+    id: number,
+    data: Partial<{ type: string }>,
+  ): Promise<AnimalType | null> {
     try {
       return await prisma.animalType.update({
         where: { id },

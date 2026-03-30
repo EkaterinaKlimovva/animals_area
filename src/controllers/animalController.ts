@@ -2,7 +2,10 @@ import { Request, Response } from 'express';
 import { AnimalService } from '../services/animalService';
 import { AnimalSearchParams } from '../repositories/animalRepository';
 import { BadRequestError, NotFoundError } from '../errors/httpErrors';
-import { toAnimalResponse, toVisitedLocationResponse } from '../mappers/animalMapper';
+import {
+  toAnimalResponse,
+  toVisitedLocationResponse,
+} from '../mappers/animalMapper';
 import {
   AnimalSearchQueryDto,
   AnimalVisitedLocationsQueryDto,
@@ -36,17 +39,25 @@ export class AnimalController {
   async getAnimals(req: Request, res: Response) {
     const params: AnimalSearchParams = {};
     const query = req.query as unknown as AnimalSearchQueryDto;
-    if (query.startDateTime) params.startDateTime = new Date(query.startDateTime);
+    if (query.startDateTime)
+      params.startDateTime = new Date(query.startDateTime);
     if (query.endDateTime) params.endDateTime = new Date(query.endDateTime);
     if (query.chipperId) params.chipperId = query.chipperId;
-    if (query.chippingLocationId) params.chippingLocationId = query.chippingLocationId;
+    if (query.chippingLocationId)
+      params.chippingLocationId = query.chippingLocationId;
     if (query.lifeStatus) params.lifeStatus = query.lifeStatus;
     if (query.gender) params.gender = query.gender;
     if (query.from !== undefined) params.from = query.from;
     if (query.size !== undefined) params.size = query.size;
 
-    if (params.startDateTime && params.endDateTime && params.startDateTime > params.endDateTime) {
-      throw new BadRequestError('startDateTime must be before or equal to endDateTime');
+    if (
+      params.startDateTime &&
+      params.endDateTime &&
+      params.startDateTime > params.endDateTime
+    ) {
+      throw new BadRequestError(
+        'startDateTime must be before or equal to endDateTime',
+      );
     }
 
     const animals = await this.animalService.getAnimals(params);
@@ -54,7 +65,15 @@ export class AnimalController {
   }
 
   async createAnimal(req: Request, res: Response) {
-    const { animalTypes, weight, length, height, gender, chipperId, chippingLocationId } = req.body as CreateAnimalRequestDto;
+    const {
+      animalTypes,
+      weight,
+      length,
+      height,
+      gender,
+      chipperId,
+      chippingLocationId,
+    } = req.body as CreateAnimalRequestDto;
     const animal = await this.animalService.createAnimal({
       animalTypes,
       weight,
@@ -74,7 +93,15 @@ export class AnimalController {
       throw new BadRequestError('Invalid animal ID');
     }
 
-    const { weight, length, height, gender, lifeStatus, chipperId, chippingLocationId } = req.body as UpdateAnimalRequestDto;
+    const {
+      weight,
+      length,
+      height,
+      gender,
+      lifeStatus,
+      chipperId,
+      chippingLocationId,
+    } = req.body as UpdateAnimalRequestDto;
     const animal = await this.animalService.updateAnimal(id, {
       weight,
       length,
@@ -126,7 +153,10 @@ export class AnimalController {
       throw new BadRequestError('Invalid type ID');
     }
 
-    const animal = await this.animalService.removeTypeFromAnimal(animalId, typeId);
+    const animal = await this.animalService.removeTypeFromAnimal(
+      animalId,
+      typeId,
+    );
     if (!animal) {
       throw new NotFoundError('Animal not found');
     }
@@ -141,7 +171,11 @@ export class AnimalController {
     }
 
     const { oldTypeId, newTypeId } = req.body as UpdateAnimalTypesRequestDto;
-    const animal = await this.animalService.updateAnimalTypes(animalId, oldTypeId, newTypeId);
+    const animal = await this.animalService.updateAnimalTypes(
+      animalId,
+      oldTypeId,
+      newTypeId,
+    );
     if (!animal) {
       throw new NotFoundError('Animal not found');
     }
@@ -156,12 +190,19 @@ export class AnimalController {
     }
 
     const query = req.query as unknown as AnimalVisitedLocationsQueryDto;
-    const visitedLocations = await this.animalService.getAnimalVisitedLocations(animalId, {
-      startDateTime: query.startDateTime ? new Date(query.startDateTime) : undefined,
-      endDateTime: query.endDateTime ? new Date(query.endDateTime) : undefined,
-      from: query.from,
-      size: query.size,
-    });
+    const visitedLocations = await this.animalService.getAnimalVisitedLocations(
+      animalId,
+      {
+        startDateTime: query.startDateTime
+          ? new Date(query.startDateTime)
+          : undefined,
+        endDateTime: query.endDateTime
+          ? new Date(query.endDateTime)
+          : undefined,
+        from: query.from,
+        size: query.size,
+      },
+    );
     res.status(200).json(visitedLocations.map(toVisitedLocationResponse));
   }
 
@@ -175,10 +216,13 @@ export class AnimalController {
       throw new BadRequestError('Invalid point ID');
     }
 
-    const visitedLocation = await this.animalService.addVisitedLocation(animalId, {
-      locationPointId: pointId,
-      dateTimeOfVisitLocation: new Date(),
-    });
+    const visitedLocation = await this.animalService.addVisitedLocation(
+      animalId,
+      {
+        locationPointId: pointId,
+        dateTimeOfVisitLocation: new Date(),
+      },
+    );
     if (!visitedLocation) {
       throw new NotFoundError('Animal or location not found');
     }
@@ -192,8 +236,13 @@ export class AnimalController {
       throw new BadRequestError('Invalid animal ID');
     }
 
-    const { visitedLocationPointId, locationPointId } = req.body as UpdateVisitedLocationRequestDto;
-    const visitedLocation = await this.animalService.updateVisitedLocation(animalId, visitedLocationPointId, { locationPointId });
+    const { visitedLocationPointId, locationPointId } =
+      req.body as UpdateVisitedLocationRequestDto;
+    const visitedLocation = await this.animalService.updateVisitedLocation(
+      animalId,
+      visitedLocationPointId,
+      { locationPointId },
+    );
     if (!visitedLocation) {
       throw new NotFoundError('Visited location not found');
     }

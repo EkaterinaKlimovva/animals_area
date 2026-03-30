@@ -2,7 +2,13 @@ import { Account, Role } from '@prisma/client';
 import prisma from '../../config/database';
 
 export class AccountRepository {
-  async create(data: { firstName: string; lastName: string; email: string; password: string; role?: Role }): Promise<Account> {
+  async create(data: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    password: string;
+    role?: Role;
+  }): Promise<Account> {
     return prisma.account.create({
       data,
     });
@@ -24,13 +30,23 @@ export class AccountRepository {
     return prisma.account.findMany();
   }
 
-  async searchAccounts(query: { firstName?: string; lastName?: string; email?: string; from?: number; size?: number }): Promise<Account[]> {
+  async searchAccounts(query: {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    from?: number;
+    size?: number;
+  }): Promise<Account[]> {
     const { firstName, lastName, email, from = 0, size = 10 } = query;
     return prisma.account.findMany({
       where: {
         AND: [
-          firstName ? { firstName: { contains: firstName, mode: 'insensitive' } } : {},
-          lastName ? { lastName: { contains: lastName, mode: 'insensitive' } } : {},
+          firstName
+            ? { firstName: { contains: firstName, mode: 'insensitive' } }
+            : {},
+          lastName
+            ? { lastName: { contains: lastName, mode: 'insensitive' } }
+            : {},
           email ? { email: { contains: email, mode: 'insensitive' } } : {},
         ],
       },
@@ -49,7 +65,16 @@ export class AccountRepository {
     return chippedCount > 0 || visitedCount > 0;
   }
 
-  async update(id: number, data: Partial<{ firstName: string; lastName: string; email: string; password: string; role: Role }>): Promise<Account | null> {
+  async update(
+    id: number,
+    data: Partial<{
+      firstName: string;
+      lastName: string;
+      email: string;
+      password: string;
+      role: Role;
+    }>,
+  ): Promise<Account | null> {
     try {
       return await prisma.account.update({
         where: { id },

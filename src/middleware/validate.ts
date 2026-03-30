@@ -8,30 +8,43 @@ type RequestSchemas = {
   params?: ZodSchema;
 };
 
-export const validate = (schemas: RequestSchemas) => (req: Request, _res: Response, next: NextFunction) => {
-  try {
-    if (schemas.params) {
-      const parsedParams = schemas.params.parse(req.params);
-      Object.assign(req.params, parsedParams);
-    }
+export const validate =
+  (schemas: RequestSchemas) =>
+  (req: Request, _res: Response, next: NextFunction) => {
+    const isTestEnv = process.env.NODE_ENV === 'test';
 
-    if (schemas.query) {
-      const parsedQuery = schemas.query.parse(req.query);
-      Object.assign(req.query, parsedQuery);
-    }
+    try {
+      if (schemas.params) {
+        const parsedParams = schemas.params.parse(req.params);
+        Object.assign(req.params, parsedParams);
+      }
 
-    if (schemas.body) {
-      req.body = schemas.body.parse(req.body);
-    }
+      if (schemas.query) {
+        const parsedQuery = schemas.query.parse(req.query);
+        Object.assign(req.query, parsedQuery);
+      }
 
-    next();
-  } catch (error) {
-    if (error instanceof ZodError) {
-      console.error('Validation error:', JSON.stringify(error.issues, null, 2));
-      return next(new BadRequestError(error.issues[0]?.message ?? 'Validation error'));
-    }
+      if (schemas.body) {
+        req.body = schemas.body.parse(req.body);
+      }
 
-    console.error('Validation error (non-Zod):', error);
-    return next(error);
-  }
-};
+      next();
+    } catch (error) {
+      if (error instanceof ZodError) {
+        if (!isTestEnv) {
+          console.error(
+            'Validation error:',
+            JSON.stringify(error.issues, null, 2),
+          );
+        }
+        return next(
+          new BadRequestError(error.issues[0]?.message ?? 'Validation error'),
+        );
+      }
+
+      if (!isTestEnv) {
+        console.error('Validation error (non-Zod):', error);
+      }
+      return next(error);
+    }
+  };

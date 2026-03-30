@@ -1,9 +1,20 @@
 import { Request, Response } from 'express';
 import { Role } from '@prisma/client';
 import { AccountService } from '../services/accountService';
-import { BadRequestError, ForbiddenError, NotFoundError } from '../errors/httpErrors';
+import {
+  BadRequestError,
+  ForbiddenError,
+  NotFoundError,
+} from '../errors/httpErrors';
 import { toAccountResponse } from '../mappers/accountMapper';
-import { AccountSearchQueryDto, CreateAccountRequestDto, RegistrationRequestDto, UpdateAccountRequestDto } from '../types/account';
+import {
+  AccountSearchQueryDto,
+  CreateAccountRequestDto,
+  RegistrationRequestDto,
+  UpdateAccountRequestDto,
+} from '../types/account';
+
+type AccountIdParams = { accountId: string | number };
 
 export class AccountController {
   private accountService: AccountService;
@@ -15,19 +26,28 @@ export class AccountController {
   // POST /registration
   async register(req: Request, res: Response) {
     if (req.user) {
-      throw new ForbiddenError('Registration is not available for authenticated users');
+      throw new ForbiddenError(
+        'Registration is not available for authenticated users',
+      );
     }
 
-    const { firstName, lastName, email, password } = req.body as RegistrationRequestDto;
-    const result = await this.accountService.register({ firstName, lastName, email, password });
+    const { firstName, lastName, email, password } =
+      req.body as RegistrationRequestDto;
+    const result = await this.accountService.register({
+      firstName,
+      lastName,
+      email,
+      password,
+    });
 
     res.status(201).json(toAccountResponse(result.account));
   }
 
   // GET /accounts/{accountId}
   async getAccountById(req: Request, res: Response) {
-    const id = parseInt(req.params.accountId, 10);
-    if (isNaN(id) || id <= 0) {
+    const params = req.params as unknown as AccountIdParams;
+    const id = Number(params.accountId);
+    if (!Number.isInteger(id) || id <= 0) {
       throw new BadRequestError('Invalid account ID');
     }
 
@@ -54,7 +74,10 @@ export class AccountController {
 
     const query = req.query as unknown as AccountSearchQueryDto;
 
-    if ((query.from !== undefined && query.from < 0) || (query.size !== undefined && query.size <= 0)) {
+    if (
+      (query.from !== undefined && query.from < 0) ||
+      (query.size !== undefined && query.size <= 0)
+    ) {
       throw new BadRequestError('Invalid pagination params');
     }
 
@@ -64,26 +87,37 @@ export class AccountController {
 
   // POST /accounts
   async createAccount(req: Request, res: Response) {
-    const { firstName, lastName, email, password, role } = req.body as CreateAccountRequestDto;
+    const { firstName, lastName, email, password, role } =
+      req.body as CreateAccountRequestDto;
     const currentUserRole = req.user!.role;
 
-    const account = await this.accountService.createAccount({ firstName, lastName, email, password, role }, currentUserRole);
+    const account = await this.accountService.createAccount(
+      { firstName, lastName, email, password, role },
+      currentUserRole,
+    );
 
     res.status(201).json(toAccountResponse(account));
   }
 
   // PUT /accounts/{accountId}
   async updateAccount(req: Request, res: Response) {
-    const id = parseInt(req.params.accountId, 10);
-    if (isNaN(id) || id <= 0) {
+    const params = req.params as unknown as AccountIdParams;
+    const id = Number(params.accountId);
+    if (!Number.isInteger(id) || id <= 0) {
       throw new BadRequestError('Invalid account ID');
     }
 
-    const { firstName, lastName, email, password, role } = req.body as UpdateAccountRequestDto;
+    const { firstName, lastName, email, password, role } =
+      req.body as UpdateAccountRequestDto;
     const currentUserId = req.user!.id;
     const currentUserRole = req.user!.role;
 
-    const account = await this.accountService.updateAccount(id, { firstName, lastName, email, password, role }, currentUserId, currentUserRole);
+    const account = await this.accountService.updateAccount(
+      id,
+      { firstName, lastName, email, password, role },
+      currentUserId,
+      currentUserRole,
+    );
     if (!account) {
       throw new NotFoundError('Account not found');
     }
@@ -93,8 +127,9 @@ export class AccountController {
 
   // DELETE /accounts/{accountId}
   async deleteAccount(req: Request, res: Response) {
-    const id = parseInt(req.params.accountId, 10);
-    if (isNaN(id) || id <= 0) {
+    const params = req.params as unknown as AccountIdParams;
+    const id = Number(params.accountId);
+    if (!Number.isInteger(id) || id <= 0) {
       throw new BadRequestError('Invalid account ID');
     }
 

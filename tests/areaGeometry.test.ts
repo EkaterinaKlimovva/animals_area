@@ -1,21 +1,29 @@
-import { arePolygonsEquivalent, polygonsOverlap, validateAreaPoints } from '../src/utils/areaGeometry';
+import {
+  arePolygonsEquivalent,
+  polygonsOverlap,
+  validateAreaPoints,
+} from '../src/utils/areaGeometry';
 
 describe('areaGeometry', () => {
   it('validates a simple polygon without throwing', () => {
-    expect(() => validateAreaPoints([
-      { latitude: 0, longitude: 0 },
-      { latitude: 0, longitude: 1 },
-      { latitude: 1, longitude: 1 },
-      { latitude: 1, longitude: 0 },
-    ])).not.toThrow();
+    expect(() =>
+      validateAreaPoints([
+        { latitude: 0, longitude: 0 },
+        { latitude: 0, longitude: 1 },
+        { latitude: 1, longitude: 1 },
+        { latitude: 1, longitude: 0 },
+      ]),
+    ).not.toThrow();
   });
 
   it('throws on duplicate points', () => {
-    expect(() => validateAreaPoints([
-      { latitude: 0, longitude: 0 },
-      { latitude: 0, longitude: 1 },
-      { latitude: 0, longitude: 1 },
-    ])).toThrow();
+    expect(() =>
+      validateAreaPoints([
+        { latitude: 0, longitude: 0 },
+        { latitude: 0, longitude: 1 },
+        { latitude: 0, longitude: 1 },
+      ]),
+    ).toThrow();
   });
 
   it('detects equivalent polygons with different starting point', () => {

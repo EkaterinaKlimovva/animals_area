@@ -102,12 +102,14 @@ export class AnimalRepository {
 
     if (params?.startDateTime || params?.endDateTime) {
       where.chippingDateTime = {};
-      if (params.startDateTime) where.chippingDateTime.gte = params.startDateTime;
+      if (params.startDateTime)
+        where.chippingDateTime.gte = params.startDateTime;
       if (params.endDateTime) where.chippingDateTime.lte = params.endDateTime;
     }
 
     if (params?.chipperId) where.chipperId = params.chipperId;
-    if (params?.chippingLocationId) where.chippingLocationId = params.chippingLocationId;
+    if (params?.chippingLocationId)
+      where.chippingLocationId = params.chippingLocationId;
     if (params?.lifeStatus) where.lifeStatus = params.lifeStatus;
     if (params?.gender) where.gender = params.gender;
 
@@ -118,7 +120,11 @@ export class AnimalRepository {
       take: params?.size ?? 10,
     });
 
-    return Promise.all(animals.map((animal) => this.findById(animal.id) as Promise<AnimalWithDetails>));
+    return Promise.all(
+      animals.map(
+        (animal) => this.findById(animal.id) as Promise<AnimalWithDetails>,
+      ),
+    );
   }
 
   async update(
@@ -165,7 +171,10 @@ export class AnimalRepository {
     return this.findById(animalId) as Promise<AnimalWithDetails>;
   }
 
-  async removeType(animalId: number, typeId: number): Promise<AnimalWithDetails | null> {
+  async removeType(
+    animalId: number,
+    typeId: number,
+  ): Promise<AnimalWithDetails | null> {
     try {
       await prisma.animalTypeOnAnimal.delete({
         where: {
@@ -181,7 +190,11 @@ export class AnimalRepository {
     }
   }
 
-  async replaceType(animalId: number, oldTypeId: number, newTypeId: number): Promise<AnimalWithDetails | null> {
+  async replaceType(
+    animalId: number,
+    oldTypeId: number,
+    newTypeId: number,
+  ): Promise<AnimalWithDetails | null> {
     try {
       await prisma.animalTypeOnAnimal.delete({
         where: {
@@ -207,7 +220,12 @@ export class AnimalRepository {
 
   async getVisitedLocations(
     animalId: number,
-    options?: { startDateTime?: Date; endDateTime?: Date; from?: number; size?: number },
+    options?: {
+      startDateTime?: Date;
+      endDateTime?: Date;
+      from?: number;
+      size?: number;
+    },
   ): Promise<AnimalVisitedLocation[]> {
     return prisma.animalVisitedLocation.findMany({
       where: {
@@ -215,7 +233,9 @@ export class AnimalRepository {
         ...(options?.startDateTime || options?.endDateTime
           ? {
               dateTimeOfVisitLocation: {
-                ...(options.startDateTime ? { gte: options.startDateTime } : {}),
+                ...(options.startDateTime
+                  ? { gte: options.startDateTime }
+                  : {}),
                 ...(options.endDateTime ? { lte: options.endDateTime } : {}),
               },
             }
@@ -253,7 +273,9 @@ export class AnimalRepository {
     });
   }
 
-  async findVisitedLocationById(id: number): Promise<AnimalVisitedLocation | null> {
+  async findVisitedLocationById(
+    id: number,
+  ): Promise<AnimalVisitedLocation | null> {
     return prisma.animalVisitedLocation.findUnique({ where: { id } });
   }
 

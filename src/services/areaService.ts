@@ -1,7 +1,12 @@
 import { Area } from '@prisma/client';
 import { AreaRepository, AreaAnalytics } from '../repositories/areaRepository';
-import { BadRequestError, NotFoundError } from '../errors/httpErrors';
+import {
+  BadRequestError,
+  ConflictError,
+  NotFoundError,
+} from '../errors/httpErrors';
 import { AreaPoint, validateAreaPoints } from '../utils/areaGeometry';
+import { ERROR_MESSAGES } from '../constants/errorMessages';
 
 export class AreaService {
   private areaRepository: AreaRepository;
@@ -10,23 +15,33 @@ export class AreaService {
     this.areaRepository = new AreaRepository();
   }
 
-  private isPointOnSegment(point: AreaPoint, a: AreaPoint, b: AreaPoint): boolean {
-    const cross = (point.latitude - a.latitude) * (b.longitude - a.longitude)
-      - (point.longitude - a.longitude) * (b.latitude - a.latitude);
+  private isPointOnSegment(
+    point: AreaPoint,
+    a: AreaPoint,
+    b: AreaPoint,
+  ): boolean {
+    const cross =
+      (point.latitude - a.latitude) * (b.longitude - a.longitude) -
+      (point.longitude - a.longitude) * (b.latitude - a.latitude);
 
     if (Math.abs(cross) > 1e-9) {
       return false;
     }
 
-    const withinLat = point.latitude >= Math.min(a.latitude, b.latitude) - 1e-9
-      && point.latitude <= Math.max(a.latitude, b.latitude) + 1e-9;
-    const withinLon = point.longitude >= Math.min(a.longitude, b.longitude) - 1e-9
-      && point.longitude <= Math.max(a.longitude, b.longitude) + 1e-9;
+    const withinLat =
+      point.latitude >= Math.min(a.latitude, b.latitude) - 1e-9 &&
+      point.latitude <= Math.max(a.latitude, b.latitude) + 1e-9;
+    const withinLon =
+      point.longitude >= Math.min(a.longitude, b.longitude) - 1e-9 &&
+      point.longitude <= Math.max(a.longitude, b.longitude) + 1e-9;
 
     return withinLat && withinLon;
   }
 
-  private isPointStrictlyInsidePolygon(point: AreaPoint, polygon: AreaPoint[]): boolean {
+  private isPointStrictlyInsidePolygon(
+    point: AreaPoint,
+    polygon: AreaPoint[],
+  ): boolean {
     for (let i = 0; i < polygon.length; i += 1) {
       const a = polygon[i];
       const b = polygon[(i + 1) % polygon.length];
@@ -42,8 +57,10 @@ export class AreaService {
       const xj = polygon[j].longitude;
       const yj = polygon[j].latitude;
 
-      const intersect = ((yi > point.latitude) !== (yj > point.latitude))
-        && (point.longitude < ((xj - xi) * (point.latitude - yi)) / ((yj - yi) || 1e-12) + xi);
+      const intersect =
+        yi > point.latitude !== yj > point.latitude &&
+        point.longitude <
+          ((xj - xi) * (point.latitude - yi)) / (yj - yi || 1e-12) + xi;
 
       if (intersect) {
         inside = !inside;
@@ -53,12 +70,20 @@ export class AreaService {
     return inside;
   }
 
-  private haveStrictAreaOverlap(left: AreaPoint[], right: AreaPoint[]): boolean {
-    return left.some((p) => this.isPointStrictlyInsidePolygon(p, right))
-      || right.some((p) => this.isPointStrictlyInsidePolygon(p, left));
+  private haveStrictAreaOverlap(
+    left: AreaPoint[],
+    right: AreaPoint[],
+  ): boolean {
+    return (
+      left.some((p) => this.isPointStrictlyInsidePolygon(p, right)) ||
+      right.some((p) => this.isPointStrictlyInsidePolygon(p, left))
+    );
   }
 
-  private async validateAreaForSave(areaPoints: AreaPoint[], currentAreaId?: number): Promise<void> {
+  private async validateAreaForSave(
+    areaPoints: AreaPoint[],
+    currentAreaId?: number,
+  ): Promise<void> {
     validateAreaPoints(areaPoints);
 
     const existingAreas = await this.areaRepository.findAll();
@@ -67,10 +92,12 @@ export class AreaService {
         continue;
       }
 
-      const existingPoints = (area.areaPoints as unknown as AreaPoint[]).map((p) => ({
-        latitude: Number(p.latitude),
-        longitude: Number(p.longitude),
-      }));
+      const existingPoints = (area.areaPoints as unknown as AreaPoint[]).map(
+        (p) => ({
+          latitude: Number(p.latitude),
+          longitude: Number(p.longitude),
+        }),
+      );
 
       if (this.haveStrictAreaOverlap(areaPoints, existingPoints)) {
         throw new BadRequestError('Area overlaps with existing area');
@@ -78,18 +105,34 @@ export class AreaService {
     }
   }
 
-  async createArea(data: { name: string; areaPoints: AreaPoint[] }): Promise<Area> {
+  async createArea(data: {
+    name: string;
+    areaPoints: AreaPoint[];
+  }): Promise<Area> {
     if (!data.name?.trim()) {
       throw new BadRequestError('Area name is required');
     }
-    
+
+    const trimmedName = data.name.trim();
+
+    const existingAreas = await this.areaRepository.findAll();
+    const duplicateByName = existingAreas.some(
+      (area) => area.name === trimmedName,
+    );
+    if (duplicateByName) {
+      throw new ConflictError(ERROR_MESSAGES.AREA_NAME_EXISTS);
+    }
+
     if (!data.areaPoints || data.areaPoints.length < 3) {
       throw new BadRequestError('Area must have at least 3 points');
     }
 
     await this.validateAreaForSave(data.areaPoints);
 
-    return this.areaRepository.create(data);
+    return this.areaRepository.create({
+      ...data,
+      name: trimmedName,
+    });
   }
 
   async getAreaById(id: number): Promise<Area | null> {
@@ -103,7 +146,10 @@ export class AreaService {
     return this.areaRepository.findAll();
   }
 
-  async updateArea(id: number, data: { name: string; areaPoints: AreaPoint[] }): Promise<Area | null> {
+  async updateArea(
+    id: number,
+    data: { name: string; areaPoints: AreaPoint[] },
+  ): Promise<Area | null> {
     if (id <= 0) {
       throw new BadRequestError('Invalid area ID');
     }
@@ -113,13 +159,25 @@ export class AreaService {
       throw new NotFoundError('Area not found');
     }
 
-    if (!data.name.trim()) {
+    const trimmedName = data.name.trim();
+    if (!trimmedName) {
       throw new BadRequestError('Area name is required');
+    }
+
+    const existingAreas = await this.areaRepository.findAll();
+    const duplicateByName = existingAreas.some(
+      (area) => area.id !== id && area.name === trimmedName,
+    );
+    if (duplicateByName) {
+      throw new ConflictError(ERROR_MESSAGES.AREA_NAME_EXISTS);
     }
 
     await this.validateAreaForSave(data.areaPoints, id);
 
-    return this.areaRepository.update(id, data);
+    return this.areaRepository.update(id, {
+      ...data,
+      name: trimmedName,
+    });
   }
 
   async deleteArea(id: number): Promise<boolean> {
@@ -135,7 +193,11 @@ export class AreaService {
     return this.areaRepository.delete(id);
   }
 
-  async getAreaAnalytics(id: number, startDate: Date, endDate: Date): Promise<AreaAnalytics> {
+  async getAreaAnalytics(
+    id: number,
+    startDate: Date,
+    endDate: Date,
+  ): Promise<AreaAnalytics> {
     if (id <= 0) {
       throw new BadRequestError('Invalid area ID');
     }

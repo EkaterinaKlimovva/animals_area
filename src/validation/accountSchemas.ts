@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { nonNegativeIntSchema, positiveIntStringSchema, trimmedStringSchema } from './commonSchemas';
+import {
+  nonNegativeIntSchema,
+  positiveIntStringSchema,
+  trimmedStringSchema,
+} from './commonSchemas';
 
 export const registrationBodySchema = z.object({
   firstName: trimmedStringSchema,

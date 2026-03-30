@@ -25,14 +25,12 @@ describe('POST /registration', () => {
       token: 'mock-token',
     });
 
-    const response = await request(app)
-      .post('/registration')
-      .send({
-        firstName: 'Ivan',
-        lastName: 'Ivanov',
-        email: 'ivan@test.com',
-        password: 'secret123',
-      });
+    const response = await request(app).post('/registration').send({
+      firstName: 'Ivan',
+      lastName: 'Ivanov',
+      email: 'ivan@test.com',
+      password: 'secret123',
+    });
 
     expect(response.status).toBe(201);
     expect(response.body).toEqual({
@@ -45,14 +43,12 @@ describe('POST /registration', () => {
   });
 
   it('returns 400 for invalid payload', async () => {
-    const response = await request(app)
-      .post('/registration')
-      .send({
-        firstName: '',
-        lastName: 'Ivanov',
-        email: 'bad-email',
-        password: '1',
-      });
+    const response = await request(app).post('/registration').send({
+      firstName: '',
+      lastName: 'Ivanov',
+      email: 'bad-email',
+      password: '1',
+    });
 
     expect(response.status).toBe(400);
     expect(response.body.error).toBeDefined();

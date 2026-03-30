@@ -42,7 +42,9 @@ export class AnimalTypeController {
     }
 
     const { type } = req.body as AnimalTypeRequestDto;
-    const animalType = await this.animalTypeService.updateAnimalType(id, { type });
+    const animalType = await this.animalTypeService.updateAnimalType(id, {
+      type,
+    });
 
     if (!animalType) {
       throw new NotFoundError('Animal type not found');

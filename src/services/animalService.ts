@@ -1,9 +1,17 @@
 import { AnimalVisitedLocation, LifeStatus, Role } from '@prisma/client';
-import { AnimalRepository, AnimalWithDetails, AnimalSearchParams } from '../repositories/animalRepository';
+import {
+  AnimalRepository,
+  AnimalWithDetails,
+  AnimalSearchParams,
+} from '../repositories/animalRepository';
 import { AccountRepository } from '../repositories/accountRepository';
 import { LocationRepository } from '../repositories/locationRepository';
 import { AnimalTypeRepository } from '../repositories/animalTypeRepository';
-import { BadRequestError, NotFoundError, ConflictError } from '../errors/httpErrors';
+import {
+  BadRequestError,
+  NotFoundError,
+  ConflictError,
+} from '../errors/httpErrors';
 
 export class AnimalService {
   private animalRepository: AnimalRepository;
@@ -54,7 +62,9 @@ export class AnimalService {
       throw new NotFoundError('Chipper not found');
     }
 
-    const location = await this.locationRepository.findById(data.chippingLocationId);
+    const location = await this.locationRepository.findById(
+      data.chippingLocationId,
+    );
     if (!location) {
       throw new NotFoundError('Chipping location not found');
     }
@@ -92,16 +102,19 @@ export class AnimalService {
     return this.animalRepository.findAll(params);
   }
 
-  async updateAnimal(id: number, data: Partial<{
-    weight: number;
-    length: number;
-    height: number;
-    gender: 'MALE' | 'FEMALE' | 'OTHER';
-    lifeStatus: 'ALIVE' | 'DEAD';
-    deathDateTime: Date | null;
-    chipperId: number;
-    chippingLocationId: number;
-  }>) {
+  async updateAnimal(
+    id: number,
+    data: Partial<{
+      weight: number;
+      length: number;
+      height: number;
+      gender: 'MALE' | 'FEMALE' | 'OTHER';
+      lifeStatus: 'ALIVE' | 'DEAD';
+      deathDateTime: Date | null;
+      chipperId: number;
+      chippingLocationId: number;
+    }>,
+  ) {
     const existingAnimal = await this.animalRepository.findById(id);
     if (!existingAnimal) {
       throw new NotFoundError('Animal not found');
@@ -116,30 +129,46 @@ export class AnimalService {
     if (data.height !== undefined && data.height <= 0) {
       throw new BadRequestError('Height must be positive');
     }
-    if (data.gender !== undefined && !['MALE', 'FEMALE', 'OTHER'].includes(data.gender)) {
+    if (
+      data.gender !== undefined &&
+      !['MALE', 'FEMALE', 'OTHER'].includes(data.gender)
+    ) {
       throw new BadRequestError('Invalid gender');
     }
-    if (data.lifeStatus === 'ALIVE' && existingAnimal.lifeStatus === LifeStatus.DEAD) {
+    if (
+      data.lifeStatus === 'ALIVE' &&
+      existingAnimal.lifeStatus === LifeStatus.DEAD
+    ) {
       throw new BadRequestError('Cannot change DEAD animal back to ALIVE');
     }
     if (data.chipperId !== undefined) {
       const chipper = await this.accountRepository.findById(data.chipperId);
-      if (!chipper || (chipper.role !== Role.ADMIN && chipper.role !== Role.CHIPPER)) {
+      if (
+        !chipper ||
+        (chipper.role !== Role.ADMIN && chipper.role !== Role.CHIPPER)
+      ) {
         throw new NotFoundError('Chipper not found');
       }
     }
     if (data.chippingLocationId !== undefined) {
-      const location = await this.locationRepository.findById(data.chippingLocationId);
+      const location = await this.locationRepository.findById(
+        data.chippingLocationId,
+      );
       if (!location) {
         throw new NotFoundError('Chipping location not found');
       }
       const firstVisited = existingAnimal.visitedLocations[0]?.locationPoint.id;
       if (firstVisited && firstVisited === data.chippingLocationId) {
-        throw new BadRequestError('Chipping location cannot equal first visited location');
+        throw new BadRequestError(
+          'Chipping location cannot equal first visited location',
+        );
       }
     }
 
-    if (data.lifeStatus === 'DEAD' && existingAnimal.lifeStatus !== LifeStatus.DEAD) {
+    if (
+      data.lifeStatus === 'DEAD' &&
+      existingAnimal.lifeStatus !== LifeStatus.DEAD
+    ) {
       data.deathDateTime = new Date();
     }
 
@@ -153,8 +182,13 @@ export class AnimalService {
     }
     if (animal.visitedLocations.length > 0) {
       const firstVisited = animal.visitedLocations[0].locationPoint.id;
-      if (firstVisited !== animal.chippingLocation.id || animal.visitedLocations.length > 1) {
-        throw new BadRequestError('Animal has visited locations and cannot be deleted');
+      if (
+        firstVisited !== animal.chippingLocation.id ||
+        animal.visitedLocations.length > 1
+      ) {
+        throw new BadRequestError(
+          'Animal has visited locations and cannot be deleted',
+        );
       }
     }
     return this.animalRepository.delete(id);
@@ -171,7 +205,9 @@ export class AnimalService {
       throw new NotFoundError('Animal type not found');
     }
 
-    const existingType = animal.types.find((item) => item.animalType.id === typeId);
+    const existingType = animal.types.find(
+      (item) => item.animalType.id === typeId,
+    );
     if (existingType) {
       throw new ConflictError('Animal already has this type');
     }
@@ -188,7 +224,9 @@ export class AnimalService {
       throw new BadRequestError('Animal must have at least one type');
     }
 
-    const existingType = animal.types.find((item) => item.animalType.id === typeId);
+    const existingType = animal.types.find(
+      (item) => item.animalType.id === typeId,
+    );
     if (!existingType) {
       throw new NotFoundError('Animal does not have this type');
     }
@@ -196,7 +234,11 @@ export class AnimalService {
     return this.animalRepository.removeType(animalId, typeId);
   }
 
-  async updateAnimalTypes(animalId: number, oldTypeId: number, newTypeId: number) {
+  async updateAnimalTypes(
+    animalId: number,
+    oldTypeId: number,
+    newTypeId: number,
+  ) {
     if (oldTypeId === newTypeId) {
       throw new ConflictError('Old and new animal type must be different');
     }
@@ -206,7 +248,9 @@ export class AnimalService {
       throw new NotFoundError('Animal not found');
     }
 
-    const oldTypeExists = animal.types.some((item) => item.animalType.id === oldTypeId);
+    const oldTypeExists = animal.types.some(
+      (item) => item.animalType.id === oldTypeId,
+    );
     if (!oldTypeExists) {
       throw new NotFoundError('Old animal type not found');
     }
@@ -216,7 +260,9 @@ export class AnimalService {
       throw new NotFoundError('New animal type not found');
     }
 
-    const newTypeExists = animal.types.some((item) => item.animalType.id === newTypeId);
+    const newTypeExists = animal.types.some(
+      (item) => item.animalType.id === newTypeId,
+    );
     if (newTypeExists) {
       throw new ConflictError('Animal already has new type');
     }
@@ -224,7 +270,15 @@ export class AnimalService {
     return this.animalRepository.replaceType(animalId, oldTypeId, newTypeId);
   }
 
-  async getAnimalVisitedLocations(animalId: number, options?: { startDateTime?: Date; endDateTime?: Date; from?: number; size?: number }): Promise<AnimalVisitedLocation[]> {
+  async getAnimalVisitedLocations(
+    animalId: number,
+    options?: {
+      startDateTime?: Date;
+      endDateTime?: Date;
+      from?: number;
+      size?: number;
+    },
+  ): Promise<AnimalVisitedLocation[]> {
     const animal = await this.animalRepository.findById(animalId);
     if (!animal) {
       throw new NotFoundError('Animal not found');
@@ -233,11 +287,14 @@ export class AnimalService {
     return this.animalRepository.getVisitedLocations(animalId, options);
   }
 
-  async addVisitedLocation(animalId: number, data: {
-    locationPointId: number;
-    dateTimeOfVisitLocation: Date;
-    visitedByAccountId?: number;
-  }): Promise<AnimalVisitedLocation> {
+  async addVisitedLocation(
+    animalId: number,
+    data: {
+      locationPointId: number;
+      dateTimeOfVisitLocation: Date;
+      visitedByAccountId?: number;
+    },
+  ): Promise<AnimalVisitedLocation> {
     const animal = await this.animalRepository.findById(animalId);
     if (!animal) {
       throw new NotFoundError('Animal not found');
@@ -246,25 +303,36 @@ export class AnimalService {
       throw new BadRequestError('Dead animal cannot visit locations');
     }
 
-    const location = await this.locationRepository.findById(data.locationPointId);
+    const location = await this.locationRepository.findById(
+      data.locationPointId,
+    );
     if (!location) {
       throw new NotFoundError('Location not found');
     }
 
     if (data.visitedByAccountId) {
-      const account = await this.accountRepository.findById(data.visitedByAccountId);
+      const account = await this.accountRepository.findById(
+        data.visitedByAccountId,
+      );
       if (!account) {
         throw new NotFoundError('Account not found');
       }
     }
 
-    if (animal.visitedLocations.length === 0 && animal.chippingLocation.id === data.locationPointId) {
-      throw new BadRequestError('Cannot add chipping location as first visited location');
+    if (
+      animal.visitedLocations.length === 0 &&
+      animal.chippingLocation.id === data.locationPointId
+    ) {
+      throw new BadRequestError(
+        'Cannot add chipping location as first visited location',
+      );
     }
 
-    const currentLocationId = animal.visitedLocations.length > 0
-      ? animal.visitedLocations[animal.visitedLocations.length - 1].locationPoint.id
-      : animal.chippingLocation.id;
+    const currentLocationId =
+      animal.visitedLocations.length > 0
+        ? animal.visitedLocations[animal.visitedLocations.length - 1]
+            .locationPoint.id
+        : animal.chippingLocation.id;
     if (currentLocationId === data.locationPointId) {
       throw new BadRequestError('Animal is already at this location');
     }
@@ -272,62 +340,96 @@ export class AnimalService {
     return this.animalRepository.addVisitedLocation({ animalId, ...data });
   }
 
-  async updateVisitedLocation(animalId: number, visitedLocationId: number, data: Partial<{
-    locationPointId: number;
-    dateTimeOfVisitLocation: Date;
-  }>): Promise<AnimalVisitedLocation | null> {
+  async updateVisitedLocation(
+    animalId: number,
+    visitedLocationId: number,
+    data: Partial<{
+      locationPointId: number;
+      dateTimeOfVisitLocation: Date;
+    }>,
+  ): Promise<AnimalVisitedLocation | null> {
     const animal = await this.animalRepository.findById(animalId);
     if (!animal) {
       throw new NotFoundError('Animal not found');
     }
 
-    const visitedLocationRecord = await this.animalRepository.findVisitedLocationById(visitedLocationId);
+    const visitedLocationRecord =
+      await this.animalRepository.findVisitedLocationById(visitedLocationId);
     if (!visitedLocationRecord) {
       throw new NotFoundError('Visited location not found');
     }
 
-    const visitedLocation = animal.visitedLocations.find(vl => vl.id === visitedLocationId);
+    const visitedLocation = animal.visitedLocations.find(
+      (vl) => vl.id === visitedLocationId,
+    );
     if (!visitedLocation) {
       throw new NotFoundError('Visited location not found for this animal');
     }
 
     if (data.locationPointId) {
-      const location = await this.locationRepository.findById(data.locationPointId);
+      const location = await this.locationRepository.findById(
+        data.locationPointId,
+      );
       if (!location) {
         throw new NotFoundError('Location not found');
       }
 
       const visitedLocations = animal.visitedLocations;
-      const currentIndex = visitedLocations.findIndex((vl) => vl.id === visitedLocationId);
-      const previousLocationId = currentIndex === 0 ? animal.chippingLocation.id : visitedLocations[currentIndex - 1].locationPoint.id;
-      const nextLocationId = currentIndex < visitedLocations.length - 1 ? visitedLocations[currentIndex + 1].locationPoint.id : undefined;
+      const currentIndex = visitedLocations.findIndex(
+        (vl) => vl.id === visitedLocationId,
+      );
+      const previousLocationId =
+        currentIndex === 0
+          ? animal.chippingLocation.id
+          : visitedLocations[currentIndex - 1].locationPoint.id;
+      const nextLocationId =
+        currentIndex < visitedLocations.length - 1
+          ? visitedLocations[currentIndex + 1].locationPoint.id
+          : undefined;
 
-      if (currentIndex === 0 && data.locationPointId === animal.chippingLocation.id) {
-        throw new BadRequestError('First visited location cannot be equal to chipping location');
+      if (
+        currentIndex === 0 &&
+        data.locationPointId === animal.chippingLocation.id
+      ) {
+        throw new BadRequestError(
+          'First visited location cannot be equal to chipping location',
+        );
       }
       if (data.locationPointId === visitedLocation.locationPoint.id) {
         throw new BadRequestError('Visited location must actually change');
       }
-      if (data.locationPointId === previousLocationId || data.locationPointId === nextLocationId) {
-        throw new BadRequestError('Visited location duplicates adjacent location');
+      if (
+        data.locationPointId === previousLocationId ||
+        data.locationPointId === nextLocationId
+      ) {
+        throw new BadRequestError(
+          'Visited location duplicates adjacent location',
+        );
       }
     }
 
     return this.animalRepository.updateVisitedLocation(visitedLocationId, data);
   }
 
-  async deleteVisitedLocation(animalId: number, visitedLocationId: number): Promise<boolean> {
+  async deleteVisitedLocation(
+    animalId: number,
+    visitedLocationId: number,
+  ): Promise<boolean> {
     const animal = await this.animalRepository.findById(animalId);
     if (!animal) {
       throw new NotFoundError('Animal not found');
     }
 
-    const visitedLocation = animal.visitedLocations.find(vl => vl.id === visitedLocationId);
+    const visitedLocation = animal.visitedLocations.find(
+      (vl) => vl.id === visitedLocationId,
+    );
     if (!visitedLocation) {
       throw new NotFoundError('Visited location not found for this animal');
     }
 
-    const index = animal.visitedLocations.findIndex((vl) => vl.id === visitedLocationId);
+    const index = animal.visitedLocations.findIndex(
+      (vl) => vl.id === visitedLocationId,
+    );
     await this.animalRepository.deleteVisitedLocation(visitedLocationId);
 
     if (index === 0 && animal.visitedLocations.length > 1) {

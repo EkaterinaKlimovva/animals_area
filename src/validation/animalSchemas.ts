@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { nonNegativeIntSchema, positiveIntSchema, positiveIntStringSchema } from './commonSchemas';
+import {
+  nonNegativeIntSchema,
+  positiveIntSchema,
+  positiveIntStringSchema,
+} from './commonSchemas';
 
 export const animalIdParamsSchema = z.object({
   animalId: positiveIntStringSchema,
